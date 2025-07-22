@@ -132,15 +132,13 @@ def onboard_team():
         name = request.form['name']
         description = request.form['description']
         email = request.form['email']
+        # Get selected entitlements as a list
         entitlements = request.form.getlist('entitlements')
         # Load existing YAML
         with open(TEAMS_YAML_PATH, 'r') as f:
             data = yaml.safe_load(f)
         # Find the next TID
         import re
-        import tempfile
-        import shutil
-        import datetime
         max_tid = 0
         for team in data.get('resources', []):
             labels = team.get('labels')
@@ -165,43 +163,19 @@ def onboard_team():
             'entitlements': entitlements
         }
         data['resources'].append(new_team)
-
-        # --- GIT/PR LOGIC START ---
-        import subprocess
-        temp_dir = tempfile.mkdtemp()
-        repo_url = "https://github.com/KongHQ-CX/kw-platform-ops.git"
-        subprocess.check_call(['git', 'clone', repo_url, temp_dir])
-
-        # Create a new branch
-        branch_name = f"onboard-{name.lower().replace(' ', '-')}-{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}"
-        subprocess.check_call(['git', '-C', temp_dir, 'checkout', '-b', branch_name])
-
-        # Overwrite the teams/resources.yaml file
-        target_yaml = os.path.join(temp_dir, 'teams', 'resources.yaml')
-        with open(target_yaml, 'w') as f:
+        # Save YAML
+        with open(TEAMS_YAML_PATH, 'w') as f:
             yaml.dump(data, f, sort_keys=False)
 
-        # Commit and push
-        subprocess.check_call(['git', '-C', temp_dir, 'add', 'teams/resources.yaml'])
-        subprocess.check_call(['git', '-C', temp_dir, 'commit', '-m', f"Onboard team: {name}"])
-        subprocess.check_call(['git', '-C', temp_dir, 'push', 'origin', branch_name])
+        # Run the GitHub Actions workflow using act from the project root asynchronously
+        import subprocess
+        project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+        subprocess.Popen(
+            f'cd "{project_root}" && act -W .github/workflows/onboard-konnect-teams.yaml',
+            shell=True
+        )
 
-        # Create PR using gh CLI
-        pr_title = f"Onboard team: {name}"
-        pr_body = f"Automated onboarding request for team '{name}' via webapp."
-        subprocess.check_call([
-            'gh', 'pr', 'create',
-            '--repo', 'KongHQ-CX/kw-platform-ops',
-            '--head', branch_name,
-            '--base', 'main',
-            '--title', pr_title,
-            '--body', pr_body
-        ])
-
-        shutil.rmtree(temp_dir)
-        # --- GIT/PR LOGIC END ---
-
-        return redirect(url_for('onboard_team', message=f"PR created to onboard team '{name}'!"))
+        return redirect(url_for('onboard_team', message=f"Team '{name}' added!"))
     return render_template_string(FORM_HTML, message=message)
 
 if __name__ == '__main__':

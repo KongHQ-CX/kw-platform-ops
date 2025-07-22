@@ -1,0 +1,7 @@
+--artifact-server-path=.tmp
+--secret-file=act.secrets
+--pull=false
+--action-offline-mode
+--container-architecture=linux/amd64
+--platform=ubuntu-latest=catthehacker/ubuntu:act-latest
+--network=host

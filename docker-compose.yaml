@@ -1,0 +1,50 @@
+networks:
+  konnect-automation-workshop:
+    driver: bridge
+
+services:
+  minio:
+    container_name: minio
+    image: 'bitnami/minio:latest'
+    ports:
+      - '9000:9000'
+      - '9001:9001'
+    environment:
+      - MINIO_ROOT_USER=minio-root-user
+      - MINIO_ROOT_PASSWORD=minio-root-password
+      - MINIO_DEFAULT_BUCKETS=tfstate
+    volumes:
+      - minio_data:/bitnami/minio/data
+      - ./scripts/create-minio-bucket.sh:/create-minio-bucket.sh
+    networks:
+      - konnect-automation-workshop
+    labels:
+      - dev.orbstack.domains=s3.minio.local
+
+  vault:
+    container_name: vault
+    image: hashicorp/vault
+    command: server -dev -dev-root-token-id="root"
+    ports:
+      - '8300:8300'
+    healthcheck:
+      retries: 5
+    environment:
+      VAULT_ADDR: 'https://0.0.0.0:8300'
+      VAULT_DEV_ROOT_TOKEN_ID: 'root'
+      VAULT_TOKEN: ${VAULT_TOKEN:-root}
+      VAULT_LOCAL_CONFIG: |-
+        {"storage": {"file": {"path": "/vault/file"}}, "listener": [{"tcp": { "address": "0.0.0.0:8300", "tls_disable": true}}], "default_lease_ttl": "168h", "max_lease_ttl": "720h", "ui": true}
+    cap_add:
+        - IPC_LOCK
+    volumes:
+      - vault_data:/data
+      - ./scripts/vault-pki-setup.sh:/vault-pki-setup.sh:rw
+    networks:
+      - konnect-automation-workshop
+
+volumes:
+  minio_data:
+    driver: local
+  vault_data:
+    driver: local

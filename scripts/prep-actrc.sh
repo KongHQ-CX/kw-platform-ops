@@ -1,0 +1,1 @@
+cp .actrc.tpl .actrc

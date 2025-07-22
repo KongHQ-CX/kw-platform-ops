@@ -12,3 +12,10 @@ resources:
   - konnect.control_plane
   - konnect.api_product
   - konnect.api
+- type: konnect.team
+  name: customer-service
+  description: Customer Service team is building Customer Service related services
+  labels:
+    TID: KTEAM_00002
+  entitlements:
+  - konnect.control_plane

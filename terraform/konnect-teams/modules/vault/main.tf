@@ -19,24 +19,39 @@ resource "vault_mount" "this" {
   description = "Vault mount for the ${var.team_name} team"
 }
 
-# Create team vault policy
+# Single policy with full access for both reading and managing secrets
 resource "vault_policy" "this" {
   name = "${vault_mount.this.path}-policy"
 
   policy = <<EOT
+# Full access to manage secrets in the team's mount
 path "${vault_mount.this.path}/data/*" {
-  capabilities = ["read"]
+  capabilities = ["create", "read", "update", "delete"]
 }
 
 path "${vault_mount.this.path}/metadata/*" {
-  capabilities = ["read"]
+  capabilities = ["create", "read", "update", "delete", "list"]
 }
 
-# Optional: Allow listing secrets
+# Delete specific secret versions
+path "${vault_mount.this.path}/delete/*" {
+  capabilities = ["update"]
+}
+
+# Undelete secret versions
+path "${vault_mount.this.path}/undelete/*" {
+  capabilities = ["update"]
+}
+
+# Destroy secret versions permanently
+path "${vault_mount.this.path}/destroy/*" {
+  capabilities = ["update"]
+}
+
+# List secrets at the mount root
 path "${vault_mount.this.path}/metadata" {
   capabilities = ["list"]
 }
-
 EOT
 }
 

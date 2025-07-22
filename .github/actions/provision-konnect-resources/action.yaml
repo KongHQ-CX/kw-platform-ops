@@ -25,6 +25,9 @@ inputs:
     description: "Konnect region"
     required: false
     default: "eu"
+  konnect_token:
+    description: 'Konnect API token'
+    required: true
 
 runs:
   using: 'composite'
@@ -115,7 +118,7 @@ runs:
     - name: Extract team name from git repo
       run: |
         REPO_NAME=$(basename $(git rev-parse --show-toplevel))
-        TEAM_NAME="${REPO_NAME#team-}"
+        TEAM_NAME="${REPO_NAME#kw-}"
         TEAM_NAME="${TEAM_NAME%-repo}"
         TEAM_NAME_NORMALIZED=$(echo "$TEAM_NAME" | tr '[:upper:]' '[:lower:]' | tr ' ' '-')
         
@@ -138,14 +141,6 @@ runs:
         echo "TF_VAR_config_file=${{ inputs.config }}" >> $GITHUB_ENV
         echo "TF_VAR_konnect_server_url=https://${{ inputs.konnect_region }}.api.konghq.com" >> $GITHUB_ENV
 
-    - name: Import Secrets from Vault
-      id: import-secrets
-      uses: hashicorp/vault-action@v2
-      with:
-        url: ${{ inputs.vault_address }}
-        token: ${{ inputs.vault_token }}
-        secrets: |
-          ${{ env.TEAM_NAME_NORMALIZED }}-kv/data/system-accounts/sa-${{ env.TEAM_NAME_NORMALIZED }} token | SYSTEM_ACCOUNT_TOKEN ;
 
     - name: Fetch team information
       id: fetch-team
@@ -153,7 +148,7 @@ runs:
         # Make a request to the Konnect API to fetch required team information
         # This is a GET request to https://global.api.konghq.com/v3/teams with a filter on the team name.
         url_encoded_control_team_name=$(echo -n "$TEAM_NAME" | jq -s -R -r @uri)
-        response=$(curl -Gs -d "filter[name][eq]=${url_encoded_control_team_name}" -w "%{http_code}" "https://global.api.konghq.com/v3/teams" -H "Authorization: Bearer ${{ env.SYSTEM_ACCOUNT_TOKEN }}" -H "Content-Type: application/json")
+        response=$(curl -Gs -d "filter[name][eq]=${url_encoded_control_team_name}" -w "%{http_code}" "https://global.api.konghq.com/v3/teams" -H "Authorization: Bearer ${{ inputs.konnect_token }}" -H "Content-Type: application/json")
         http_code=${response: -3}
         response_body=${response:0:-3}
 
@@ -199,7 +194,7 @@ runs:
           -backend-config="secret_key=${{ inputs.s3_secret_key }}"
       env:
         TF_VAR_team: ${{ steps.fetch-team.outputs.team }}
-        TF_VAR_konnect_access_token: ${{ env.SYSTEM_ACCOUNT_TOKEN }}
+        TF_VAR_konnect_access_token: ${{ inputs.konnect_token }}
       working-directory: ${{env.TERRAFORM_DIR}}
 
     - name: Terraform Plan
@@ -209,7 +204,7 @@ runs:
         terraform plan -out=tfplan
       env:
         TF_VAR_team: ${{ steps.fetch-team.outputs.team }}
-        TF_VAR_konnect_access_token: ${{ env.SYSTEM_ACCOUNT_TOKEN }}
+        TF_VAR_konnect_access_token: ${{ inputs.konnect_token }}
       working-directory: ${{env.TERRAFORM_DIR}}
 
     - name: Terraform Apply
@@ -220,7 +215,7 @@ runs:
         terraform apply -auto-approve tfplan
       env:
         TF_VAR_team: ${{ steps.fetch-team.outputs.team }}
-        TF_VAR_konnect_access_token: ${{ env.SYSTEM_ACCOUNT_TOKEN }}
+        TF_VAR_konnect_access_token: ${{ inputs.konnect_token }}
       working-directory: ${{env.TERRAFORM_DIR}}
 
     - name: Terraform destroy
@@ -230,5 +225,5 @@ runs:
         terraform destroy -auto-approve
       env:
         TF_VAR_team: ${{ steps.fetch-team.outputs.team }}
-        TF_VAR_konnect_access_token: ${{ env.SYSTEM_ACCOUNT_TOKEN }}
+        TF_VAR_konnect_access_token: ${{ inputs.konnect_token }}
       working-directory: ${{env.TERRAFORM_DIR}}

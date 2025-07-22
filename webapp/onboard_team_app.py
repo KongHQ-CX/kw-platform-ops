@@ -96,15 +96,43 @@ FORM_HTML = '''
       margin-top: 1rem;
       font-weight: 500;
     }
+    .loader-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(255,255,255,0.7);
+      z-index: 9999;
+      align-items: center;
+      justify-content: center;
+    }
+    .loader {
+      border: 6px solid #f3f3f3;
+      border-top: 6px solid #3182ce;
+      border-radius: 50%;
+      width: 48px;
+      height: 48px;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
   </style>
 </head>
 <body>
+  <div class="loader-overlay" id="loaderOverlay">
+    <div class="loader"></div>
+    <div style="margin-top:16px; text-align:center; color:#2d3748; font-weight:500;">Creating PR, please wait...</div>
+  </div>
   <div class="form-container">
     <div style="text-align:center; margin-bottom:1.2rem;">
       <img src="{{ url_for('static', filename='konnect.svg') }}" alt="Kong Konnect Logo" style="max-width:180px; height:auto;"/>
     </div>
     <h2>New Onboarding Request</h2>
-    <form method="post" autocomplete="off">
+    <form method="post" autocomplete="off" onsubmit="document.getElementById('loaderOverlay').style.display='flex';">
       <label for="name">Team Name</label>
       <input id="name" name="name" type="text" required>
       <label for="description">Team Description</label>

@@ -11,8 +11,11 @@ jobs:
   onboard-konnect-teams:
     runs-on: ubuntu-latest
     env:
+      KONNECT_SERVER_URL: ${{ vars.KONNECT_SERVER_URL }}
       KONNECT_TOKEN: ${{ secrets.KONNECT_TOKEN }}
+      VAULT_ADDR: ${{ vars.VAULT_ADDR }}
       VAULT_TOKEN: ${{ secrets.VAULT_TOKEN }}
+      AWS_ENDPOINT_URL: ${{ vars.AWS_ENDPOINT_URL }}
       AWS_ACCESS_KEY_ID: ${{ secrets.S3_ACCESS_KEY }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.S3_SECRET_KEY }}
     steps:

@@ -19,7 +19,7 @@ resource "vault_mount" "this" {
   description = "Vault mount for the ${var.team_name} team"
 }
 
-# Single policy with full access for both reading and managing secrets
+# Single policy with full access for both reading secrets and managing secrets
 resource "vault_policy" "this" {
   name = "${vault_mount.this.path}-policy"
 
@@ -52,6 +52,25 @@ path "${vault_mount.this.path}/destroy/*" {
 path "${vault_mount.this.path}/metadata" {
   capabilities = ["list"]
 }
+
+# Allow creating child tokens (needed for vault-action)
+path "auth/token/create" {
+  capabilities = ["create", "update"]
+}
+
+# Allow token renewal and revocation
+path "auth/token/renew" {
+  capabilities = ["update"]
+}
+
+path "auth/token/revoke" {
+  capabilities = ["update"]
+}
+
+# Allow reading token information
+path "auth/token/lookup-self" {
+  capabilities = ["read"]
+}
 EOT
 }
 
@@ -75,9 +94,10 @@ resource "vault_jwt_auth_backend_role" "github_repo" {
   user_claim    = "sub"
   role_type     = "jwt"
   
-  # Short-lived tokens (GitHub tokens are valid for ~10 minutes anyway)
-  token_ttl     = 300  # 5 minutes
-  token_max_ttl = 600  # 10 minutes
+  # TTL suitable for Terraform operations
+  token_ttl         = 1800  # 30 minutes
+  token_max_ttl     = 3600  # 1 hour
+  token_num_uses    = 0     # Unlimited uses
 }
 # # Map policy to team
 # resource "vault_github_team" "this" {

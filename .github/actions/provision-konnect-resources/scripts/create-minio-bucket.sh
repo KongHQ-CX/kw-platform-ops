@@ -5,11 +5,17 @@ set -e
 # Define your bucket name and alias
 ALIAS=$1
 BUCKET_NAME=$2
-ROOT_USER="${3:-minio-root-user}"
-ROOT_PASSWORD="${4:-minio-root-password}"
-MINIO_URL="${5:-http://localhost:9000}"
 
-mc alias set $ALIAS $MINIO_URL $ROOT_USER $ROOT_PASSWORD
+echo "Using AWS endpoint URL: $AWS_ENDPOINT_URL"
+
+# $AWS_ENDPOINT_URL $AWS_ACCESS_KEY_ID $AWS_SECRET_ACCESS_KEY are expected to be set in the environment
+if [ -z "$AWS_ENDPOINT_URL" ] || [ -z "$AWS_ACCESS_KEY_ID" ] || [ -z "$AWS_SECRET_ACCESS_KEY" ]; then
+    echo "AWS_ENDPOINT_URL, AWS_ACCESS_KEY_ID, and AWS_SECRET_ACCESS_KEY must be set."
+    exit 1
+fi
+
+# Set the MinIO client alias with S3v4 API
+mc alias set $ALIAS $AWS_ENDPOINT_URL $AWS_ACCESS_KEY_ID $AWS_SECRET_ACCESS_KEY --api s3v4
 
 # Check if the bucket exists
 if mc ls "${ALIAS}/${BUCKET_NAME}" &> /dev/null; then

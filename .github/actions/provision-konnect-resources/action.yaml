@@ -15,6 +15,10 @@ inputs:
   vault_token:
     description: 'Vault token'
     required: true
+  s3_endpoint_url:
+    description: 'S3 endpoint URL'
+    required: true
+    default: 'http://localhost:9000'
   s3_access_key:
     description: 'S3 access key'
     required: true
@@ -178,6 +182,7 @@ runs:
       run: |
         ./create-minio-bucket.sh konnect $RESOURCE_TYPE.$TEAM_NAME_NORMALIZED
       env:
+        AWS_ENDPOINT_URL: ${{ inputs.s3_endpoint_url }}
         AWS_ACCESS_KEY_ID: ${{ inputs.s3_access_key }}
         AWS_SECRET_ACCESS_KEY: ${{ inputs.s3_secret_key }}
       working-directory: ${{ github.action_path }}/scripts
@@ -193,6 +198,7 @@ runs:
           -backend-config="access_key=${{ inputs.s3_access_key }}" \
           -backend-config="secret_key=${{ inputs.s3_secret_key }}"
       env:
+        AWS_ENDPOINT_URL: ${{ inputs.s3_endpoint_url }}
         TF_VAR_team: ${{ steps.fetch-team.outputs.team }}
         TF_VAR_konnect_access_token: ${{ inputs.konnect_token }}
       working-directory: ${{env.TERRAFORM_DIR}}
@@ -203,6 +209,7 @@ runs:
       run: |
         terraform plan -out=tfplan
       env:
+        AWS_ENDPOINT_URL: ${{ inputs.s3_endpoint_url }}
         TF_VAR_team: ${{ steps.fetch-team.outputs.team }}
         TF_VAR_konnect_access_token: ${{ inputs.konnect_token }}
       working-directory: ${{env.TERRAFORM_DIR}}
@@ -214,6 +221,7 @@ runs:
       run: |
         terraform apply -auto-approve tfplan
       env:
+        AWS_ENDPOINT_URL: ${{ inputs.s3_endpoint_url }}
         TF_VAR_team: ${{ steps.fetch-team.outputs.team }}
         TF_VAR_konnect_access_token: ${{ inputs.konnect_token }}
       working-directory: ${{env.TERRAFORM_DIR}}
@@ -224,6 +232,7 @@ runs:
       run: |
         terraform destroy -auto-approve
       env:
+        AWS_ENDPOINT_URL: ${{ inputs.s3_endpoint_url }}
         TF_VAR_team: ${{ steps.fetch-team.outputs.team }}
         TF_VAR_konnect_access_token: ${{ inputs.konnect_token }}
       working-directory: ${{env.TERRAFORM_DIR}}

@@ -2,56 +2,19 @@ name: Provision Konnect Teams
 
 on:
   workflow_dispatch:
-    inputs:
-      environment:
-        description: 'Environment to provision'
-        type: choice
-        options:
-          - 'development'
-          - 'staging'
-          - 'production'
-        default: 'development'
 
 env:
   TEAMS_CONFIG: ${{ github.workspace }}/teams/resources.yaml
   TERRAFORM_DIR: ${{ github.workspace }}/terraform/konnect-teams
-  KONNECT_TEAM_RESOURCES_S3_BUCKET_PREFIX: konnect.team.resources
 
 jobs:
-  generate-offboarding-matrix:
+  onboard-konnect-teams:
     runs-on: ubuntu-latest
-    outputs:
-      matrix: ${{ steps.set-matrix.outputs.matrix }}
-      is_empty: ${{ steps.set-matrix.outputs.is_empty }}
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Read Config YAML file and generate matrix
-        id: set-matrix
-        run: |
-          # Use yq to extract offboarded teams and output as JSON array
-          MATRIX=$(yq -o=json '.resources[] | select(.offboarded == true)' "$TEAMS_CONFIG" | jq -s -c '.')
-
-          if [[ "$MATRIX" == "[]" ]]; then
-            echo "::set-output name=is_empty::true"
-            echo "::set-output name=matrix::[]"
-            exit 0
-          fi
-
-          echo "::set-output name=is_empty::false"
-          echo "::set-output name=matrix::$MATRIX"
-        shell: bash
-
-  offboard-konnect-teams:
-    needs: generate-offboarding-matrix
-    if: needs.generate-offboarding-matrix.outputs.is_empty == 'false'
-    runs-on: ubuntu-latest
-    strategy:
-      matrix: 
-        include: ${{ fromJSON(needs.generate-offboarding-matrix.outputs.matrix) }}
-
+    env:
+      KONNECT_SERVER_URL: https://eu.api.konghq.com
+      KONNECT_TOKEN: ${{ secrets.KONNECT_TOKEN }}
+      VAULT_ADDR: ${{ secrets.VAULT_ADDR }}
+      VAULT_TOKEN: ${{ secrets.VAULT_TOKEN }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -59,153 +22,87 @@ jobs:
       - name: Install MinIO Client
         uses: ./.github/actions/setup-minio-client
 
-      # - name: Install vault cli
-      #   uses: ./.github/actions/setup-vault-client
-
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: 'latest'
+          terraform_version: "latest"
 
-      - name: debug matrix
+      - name: Validate config
         run: |
-          echo "${{ env.KONNECT_TEAM_RESOURCES_S3_BUCKET_PREFIX }}.${{ matrix.name }}"
-        shell: bash
+          config_content=$( cat ${{ env.TEAMS_CONFIG }} | yq -r . )
 
-      - name: Check if S3 bucket exists
-        id: check-bucket
-        shell: bash
-        run: |
-          mc alias set konnect http://localhost:9000 $AWS_ACCESS_KEY_ID $AWS_SECRET_ACCESS_KEY
-          if mc ls "konnect/${{ env.KONNECT_TEAM_RESOURCES_S3_BUCKET_PREFIX }}.${{ matrix.name }}" > /dev/null 2>&1; then
-            echo "::set-output name=exists::true"
-          else
-            echo "::set-output name=exists::false"
+          # Validate metadata.type
+          metadata_type=$(echo "$config_content" | yq -r '.metadata.type')
+          if [ "$metadata_type" != "konnect.teams" ]; then
+            echo "Invalid metadata.type: $metadata_type. Expected 'konnect.teams'"
+            exit 1
           fi
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.S3_ACCESS_KEY }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.S3_SECRET_KEY }}
+
+          # Validate resources is an array
+          resources_type=$(echo "$config_content" | yq -r '.resources | type')
+          if [ "$resources_type" != "!!seq" ]; then
+            echo "Invalid resources type: $resources_type. Expected '!!seq' (array)"
+            exit 1
+          fi
+
+          # Every resource must have a name and the name must be lowercase alphanumeric with hyphens
+          invalid_names=$(echo "$config_content" | yq -r '.resources[] | select(.name == null or (.name | test("[^a-z0-9-]"))) | .name')
+          if [ -n "$invalid_names" ]; then
+            echo "Invalid resource names found: $invalid_names. Names must be lowercase alphanumeric with hyphens."
+            exit 1
+          fi
+
+          # Validate each resource type
+          invalid_resources=$(echo "$config_content" | yq '[.resources[] | select(.type != "konnect.team")]')
+          if [ "$(echo "$invalid_resources" | yq 'length')" -ne 0 ]; then
+            echo "Invalid resource types found: $(echo "$invalid_resources" | yq -c '.[]')"
+            exit 1
+          fi
+
+          echo "Config validation passed"
+        shell: bash
 
       - name: Set resource variables from config file
         run: |
-          echo "TF_VAR_vault_address=${{ secrets.VAULT_ADDR }}" >> $GITHUB_ENV
-          echo "TF_VAR_vault_token=${{ secrets.VAULT_TOKEN }}" >> $GITHUB_ENV
-          echo "TF_VAR_konnect_personal_access_token=${{ secrets.KONNECT_PAT }}" >> $GITHUB_ENV
-          echo "TF_VAR_konnect_server_url=https://eu.api.konghq.com" >> $GITHUB_ENV
+          RESOURCE_TYPE=$( cat ${{ env.TEAMS_CONFIG }} | yq -r '.metadata.type' )
+          echo "RESOURCE_TYPE=$RESOURCE_TYPE" >> $GITHUB_ENV
+          echo "TERRAFORM_DIR=$TERRAFORM_DIR" >> $GITHUB_ENV
+          echo "TF_VAR_config_file=${{ env.TEAMS_CONFIG }}" >> $GITHUB_ENV
+          # echo "TF_VAR_vault_address=${{ secrets.VAULT_ADDR }}" >> $GITHUB_ENV
+          # echo "TF_VAR_vault_token=${{ secrets.VAULT_TOKEN }}" >> $GITHUB_ENV
+          # echo "TF_VAR_konnect_personal_access_token=${{ secrets.KONNECT_TOKEN }}" >> $GITHUB_ENV
+          # echo "TF_VAR_konnect_server_url=https://eu.api.konghq.com" >> $GITHUB_ENV
         shell: bash
 
+      - name: Create S3 bucket if required
+        shell: bash
+        run: |
+          ./create-minio-bucket.sh konnect $RESOURCE_TYPE
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.S3_ACCESS_KEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.S3_SECRET_KEY }}
+        working-directory: ${{ github.workspace }}/scripts
+
       - name: Terraform Init
-        if: steps.check-bucket.outputs.exists == 'true'
         shell: bash
         run: |
           terraform init -upgrade \
-          -backend-config=config.s3.tfbackend \
-          -backend-config="bucket=${{ env.KONNECT_TEAM_RESOURCES_S3_BUCKET_PREFIX }}.${{ matrix.name }}" \
-          -backend-config="key=tfstate" \
-          -backend-config="region=main" \
-          -backend-config="access_key=${{ secrets.S3_ACCESS_KEY }}" \
-          -backend-config="secret_key=${{ secrets.S3_SECRET_KEY }}"
-        working-directory: ${{ env.TERRAFORM_DIR }}
+            -backend-config=config.s3.tfbackend \
+            -backend-config="bucket=$RESOURCE_TYPE" \
+            -backend-config="key=tfstate" \
+            -backend-config="region=main" \
+            -backend-config="access_key=${{ secrets.S3_ACCESS_KEY }}" \
+            -backend-config="secret_key=${{ secrets.S3_SECRET_KEY }}"
+        working-directory: ${{env.TERRAFORM_DIR}}
 
-      - name: Terraform destroy
-        if: steps.check-bucket.outputs.exists == 'true'
+      - name: Terraform Plan
         shell: bash
         run: |
-          terraform destroy -auto-approve
-        working-directory: ${{ env.TERRAFORM_DIR }}
+          terraform plan -out=tfplan
+        working-directory: ${{env.TERRAFORM_DIR}}
 
-  onboard-konnect-teams:
-      runs-on: ubuntu-latest
-      needs: offboard-konnect-teams
-      if: always()
-      steps:
-        - name: Checkout repository
-          uses: actions/checkout@v4
-
-        - name: Install MinIO Client
-          uses: ./.github/actions/setup-minio-client
-
-        - name: Setup Terraform
-          uses: hashicorp/setup-terraform@v3
-          with:
-            terraform_version: "latest"
-
-        - name: Validate config
-          run: |
-            config_content=$( cat ${{ env.TEAMS_CONFIG }} | yq -r . )
-
-            # Validate metadata.type
-            metadata_type=$(echo "$config_content" | yq -r '.metadata.type')
-            if [ "$metadata_type" != "konnect.teams" ]; then
-              echo "Invalid metadata.type: $metadata_type. Expected 'konnect.teams'"
-              exit 1
-            fi
-
-            # Validate resources is an array
-            resources_type=$(echo "$config_content" | yq -r '.resources | type')
-            if [ "$resources_type" != "!!seq" ]; then
-              echo "Invalid resources type: $resources_type. Expected '!!seq' (array)"
-              exit 1
-            fi
-
-            # Every resource must have a name and the name must be lowercase alphanumeric with hyphens
-            invalid_names=$(echo "$config_content" | yq -r '.resources[] | select(.name == null or (.name | test("[^a-z0-9-]"))) | .name')
-            if [ -n "$invalid_names" ]; then
-              echo "Invalid resource names found: $invalid_names. Names must be lowercase alphanumeric with hyphens."
-              exit 1
-            fi
-
-            # Validate each resource type
-            invalid_resources=$(echo "$config_content" | yq '[.resources[] | select(.type != "konnect.team")]')
-            if [ "$(echo "$invalid_resources" | yq 'length')" -ne 0 ]; then
-              echo "Invalid resource types found: $(echo "$invalid_resources" | yq -c '.[]')"
-              exit 1
-            fi
-
-            echo "Config validation passed"
-          shell: bash
-
-        - name: Set resource variables from config file
-          run: |
-            RESOURCE_TYPE=$( cat ${{ env.TEAMS_CONFIG }} | yq -r '.metadata.type' )
-            echo "RESOURCE_TYPE=$RESOURCE_TYPE" >> $GITHUB_ENV
-            echo "TERRAFORM_DIR=$TERRAFORM_DIR" >> $GITHUB_ENV
-            echo "TF_VAR_config_file=${{ env.TEAMS_CONFIG }}" >> $GITHUB_ENV
-            echo "TF_VAR_vault_address=${{ secrets.VAULT_ADDR }}" >> $GITHUB_ENV
-            echo "TF_VAR_vault_token=${{ secrets.VAULT_TOKEN }}" >> $GITHUB_ENV
-            echo "TF_VAR_konnect_personal_access_token=${{ secrets.KONNECT_PAT }}" >> $GITHUB_ENV
-            echo "TF_VAR_konnect_server_url=https://eu.api.konghq.com" >> $GITHUB_ENV
-          shell: bash
-
-        - name: Create S3 bucket if required
-          shell: bash
-          run: |
-            ./create-minio-bucket.sh konnect $RESOURCE_TYPE
-          env:
-            AWS_ACCESS_KEY_ID: ${{ secrets.S3_ACCESS_KEY }}
-            AWS_SECRET_ACCESS_KEY: ${{ secrets.S3_SECRET_KEY }}
-          working-directory: ${{ github.workspace }}/scripts
-
-        - name: Terraform Init
-          shell: bash
-          run: |
-            terraform init -upgrade \
-              -backend-config=config.s3.tfbackend \
-              -backend-config="bucket=$RESOURCE_TYPE" \
-              -backend-config="key=tfstate" \
-              -backend-config="region=main" \
-              -backend-config="access_key=${{ secrets.S3_ACCESS_KEY }}" \
-              -backend-config="secret_key=${{ secrets.S3_SECRET_KEY }}"
-          working-directory: ${{env.TERRAFORM_DIR}}
-
-        - name: Terraform Plan
-          shell: bash
-          run: |
-            terraform plan -out=tfplan
-          working-directory: ${{env.TERRAFORM_DIR}}
-
-        - name: Terraform Apply
-          shell: bash
-          run: |
-            terraform apply -auto-approve tfplan
-          working-directory: ${{env.TERRAFORM_DIR}}
+      - name: Terraform Apply
+        shell: bash
+        run: |
+          terraform apply -auto-approve tfplan
+        working-directory: ${{env.TERRAFORM_DIR}}

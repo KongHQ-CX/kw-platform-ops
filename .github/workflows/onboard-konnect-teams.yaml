@@ -2,6 +2,9 @@ name: Provision Konnect Teams
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - 'teams/resources.yaml'
 
 env:
   TF_VAR_config_file: ${{ github.workspace }}/teams/resources.yaml

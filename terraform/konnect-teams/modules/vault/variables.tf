@@ -12,3 +12,9 @@ variable "system_account_token" {
   description = "The token for the system account"
   type        = string
 }
+
+variable "github_organization" {
+  description = "The GitHub organization name"
+  type        = string
+  default     = "KongHQ-CX"
+}

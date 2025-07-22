@@ -99,12 +99,6 @@ resource "vault_jwt_auth_backend_role" "github_repo" {
   token_max_ttl     = 3600  # 1 hour
   token_num_uses    = 0     # Unlimited uses
 }
-# # Map policy to team
-# resource "vault_github_team" "this" {
-#   backend  = data.vault_auth_backend.this.id
-#   team     = var.team_name
-#   policies = ["${vault_policy.this.name}"]
-# }
 
 # Store the access token in the KV
 resource "vault_kv_secret_v2" "this" {

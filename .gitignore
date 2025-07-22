@@ -68,3 +68,4 @@ docker/*.deb
 demo_steps.txt
 .github/prompts/
 tfplan
+.vars

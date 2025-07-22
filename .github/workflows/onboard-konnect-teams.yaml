@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
 
 env:
-  TEAMS_CONFIG: ${{ github.workspace }}/teams/resources.yaml
+  TEAMS_RESOURCES_FILE: ${{ github.workspace }}/teams/resources.yaml
   TERRAFORM_DIR: ${{ github.workspace }}/terraform/konnect-teams
 
 jobs:
@@ -15,6 +15,9 @@ jobs:
       KONNECT_TOKEN: ${{ secrets.KONNECT_TOKEN }}
       VAULT_ADDR: ${{ secrets.VAULT_ADDR }}
       VAULT_TOKEN: ${{ secrets.VAULT_TOKEN }}
+      AWS_ENDPOINT_URL: http://localhost:9000
+      AWS_ACCESS_KEY_ID: ${{ secrets.S3_ACCESS_KEY }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.S3_SECRET_KEY }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -29,7 +32,7 @@ jobs:
 
       - name: Validate config
         run: |
-          config_content=$( cat ${{ env.TEAMS_CONFIG }} | yq -r . )
+          config_content=$( cat ${{ env.TEAMS_RESOURCES_FILE }} | yq -r . )
 
           # Validate metadata.type
           metadata_type=$(echo "$config_content" | yq -r '.metadata.type')
@@ -64,23 +67,14 @@ jobs:
 
       - name: Set resource variables from config file
         run: |
-          RESOURCE_TYPE=$( cat ${{ env.TEAMS_CONFIG }} | yq -r '.metadata.type' )
+          RESOURCE_TYPE=$( cat ${{ env.TEAMS_RESOURCES_FILE }} | yq -r '.metadata.type' )
           echo "RESOURCE_TYPE=$RESOURCE_TYPE" >> $GITHUB_ENV
-          echo "TERRAFORM_DIR=$TERRAFORM_DIR" >> $GITHUB_ENV
-          echo "TF_VAR_config_file=${{ env.TEAMS_CONFIG }}" >> $GITHUB_ENV
-          # echo "TF_VAR_vault_address=${{ secrets.VAULT_ADDR }}" >> $GITHUB_ENV
-          # echo "TF_VAR_vault_token=${{ secrets.VAULT_TOKEN }}" >> $GITHUB_ENV
-          # echo "TF_VAR_konnect_personal_access_token=${{ secrets.KONNECT_TOKEN }}" >> $GITHUB_ENV
-          # echo "TF_VAR_konnect_server_url=https://eu.api.konghq.com" >> $GITHUB_ENV
         shell: bash
 
       - name: Create S3 bucket if required
         shell: bash
         run: |
           ./create-minio-bucket.sh konnect $RESOURCE_TYPE
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.S3_ACCESS_KEY }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.S3_SECRET_KEY }}
         working-directory: ${{ github.workspace }}/scripts
 
       - name: Terraform Init

@@ -42,7 +42,6 @@ resource "vault_mount" "this" {
 #   policies = ["${vault_policy.this.name}"]
 # }
 
-
 # Store the access token in the KV
 resource "vault_kv_secret_v2" "this" {
 

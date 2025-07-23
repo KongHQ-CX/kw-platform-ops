@@ -32,7 +32,7 @@ inputs:
   konnect_token:
     description: 'Konnect API token'
     required: true
-  team_name:
+  konnect_team_name:
     description: 'Team name to provision resources for'
     required: true
 
@@ -139,7 +139,7 @@ runs:
       run: |
         # Make a request to the Konnect API to fetch required team information
         # This is a GET request to https://global.api.konghq.com/v3/teams with a filter on the team name.
-        url_encoded_control_team_name=$(echo -n "${{ inputs.team_name }}" | jq -s -R -r @uri)
+        url_encoded_control_team_name=$(echo -n "${{ inputs.konnect_team_name }}" | jq -s -R -r @uri)
         response=$(curl -Gs -d "filter[name][eq]=${url_encoded_control_team_name}" -w "%{http_code}" "https://global.api.konghq.com/v3/teams" -H "Authorization: Bearer ${{ inputs.konnect_token }}" -H "Content-Type: application/json")
         http_code=${response: -3}
         response_body=${response:0:-3}
@@ -169,7 +169,7 @@ runs:
       run: |
         terraform init -upgrade \
           -backend-config=config.s3.tfbackend \
-          -backend-config="bucket=$RESOURCE_TYPE.${{ inputs.team_name }}" \
+          -backend-config="bucket=$RESOURCE_TYPE.${{ inputs.konnect_team_name }}" \
           -backend-config="key=tfstate" \
           -backend-config="region=main" \
           -backend-config="access_key=${{ inputs.s3_access_key }}" \

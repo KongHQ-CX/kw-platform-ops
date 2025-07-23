@@ -151,7 +151,6 @@ runs:
       run: |
         # Make a request to the Konnect API to fetch required team information
         # This is a GET request to https://global.api.konghq.com/v3/teams with a filter on the team name.
-        echo "Fetching team information for $TEAM_NAME using token ${{ inputs.konnect_token }}"
         url_encoded_control_team_name=$(echo -n "$TEAM_NAME" | jq -s -R -r @uri)
         response=$(curl -Gs -d "filter[name][eq]=${url_encoded_control_team_name}" -w "%{http_code}" "https://global.api.konghq.com/v3/teams" -H "Authorization: Bearer ${{ inputs.konnect_token }}" -H "Content-Type: application/json")
         http_code=${response: -3}

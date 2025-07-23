@@ -67,7 +67,8 @@ module "apis" {
   description  = lookup(each.value, "description", null)
   labels       = lookup(each.value, "labels", {})
   slug         = lookup(each.value, "slug", null)
-  spec_content = lookup(each.value, "spec_content", null)
+  # spec_content = lookup(each.value, "spec_content", null)
+  spec_content = yamldecode(file("../../${each.value.spec_content.file}"))
   api_version  = lookup(each.value, "version", null)
 }
 

@@ -19,8 +19,8 @@ resource "konnect_gateway_control_plane" "this" {
 
 # DEMO: Create a self-signed certificates for the control plane.
 # In a real-world scenario, you would use a proper CA or a managed certificate service
-# or provide a vaulted private to sign the control plane certificate.
-# This certificate will be used for clustering and client authentication
+# or provide a vaulted private key to sign the control plane certificate.
+# This certificate will be used for clustering control plane - data plane authentication.
 resource "tls_private_key" "this" {
   algorithm = "RSA"
   rsa_bits  = 4096

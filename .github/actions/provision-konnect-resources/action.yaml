@@ -50,12 +50,16 @@ runs:
       run: |
         ${{ github.action_path }}/scripts/validate-config.sh "${{ inputs.config }}"
 
-    - name: Set Environment Variables
+    - name: Setup Terraform Environment
       shell: bash
       run: |
-        echo "TERRAFORM_DIR=${{ github.action_path }}/terraform" >> $GITHUB_ENV
         echo "VAULT_ADDR=${{ inputs.vault_address }}" >> $GITHUB_ENV
         echo "VAULT_TOKEN=${{ inputs.vault_token }}" >> $GITHUB_ENV
+        echo "AWS_ENDPOINT_URL=${{ inputs.s3_endpoint_url }}" >> $GITHUB_ENV
+        echo "AWS_ACCESS_KEY_ID=${{ inputs.s3_access_key }}" >> $GITHUB_ENV
+        echo "AWS_SECRET_ACCESS_KEY=${{ inputs.s3_secret_key }}" >> $GITHUB_ENV
+        echo "TF_VAR_team=${{ steps.fetch-team.outputs.team }}" >> $GITHUB_ENV
+        echo "TF_VAR_konnect_access_token=${{ inputs.konnect_token }}" >> $GITHUB_ENV
         echo "TF_VAR_config_file=${{ inputs.config }}" >> $GITHUB_ENV
         echo "TF_VAR_konnect_server_url=https://${{ inputs.konnect_region }}.api.konghq.com" >> $GITHUB_ENV
 
@@ -99,26 +103,14 @@ runs:
           -backend-config="region=main" \
           -backend-config="access_key=${{ inputs.s3_access_key }}" \
           -backend-config="secret_key=${{ inputs.s3_secret_key }}"
-      env:
-        AWS_ENDPOINT_URL: ${{ inputs.s3_endpoint_url }}
-        AWS_ACCESS_KEY_ID: ${{ inputs.s3_access_key }}
-        AWS_SECRET_ACCESS_KEY: ${{ inputs.s3_secret_key }}
-        TF_VAR_team: ${{ steps.fetch-team.outputs.team }}
-        TF_VAR_konnect_access_token: ${{ inputs.konnect_token }}
-      working-directory: ${{env.TERRAFORM_DIR}}
+      working-directory: ${{ github.action_path }}/terraform
 
     - name: Terraform Plan
       shell: bash
       if: ${{ inputs.action == 'provision' }}
       run: |
         terraform plan -out=tfplan
-      env:
-        AWS_ENDPOINT_URL: ${{ inputs.s3_endpoint_url }}
-        AWS_ACCESS_KEY_ID: ${{ inputs.s3_access_key }}
-        AWS_SECRET_ACCESS_KEY: ${{ inputs.s3_secret_key }}
-        TF_VAR_team: ${{ steps.fetch-team.outputs.team }}
-        TF_VAR_konnect_access_token: ${{ inputs.konnect_token }}
-      working-directory: ${{env.TERRAFORM_DIR}}
+      working-directory: ${{ github.action_path }}/terraform
 
     - name: Terraform Apply
       shell: bash
@@ -126,23 +118,11 @@ runs:
       id: tfapply
       run: |
         terraform apply -auto-approve tfplan
-      env:
-        AWS_ENDPOINT_URL: ${{ inputs.s3_endpoint_url }}
-        AWS_ACCESS_KEY_ID: ${{ inputs.s3_access_key }}
-        AWS_SECRET_ACCESS_KEY: ${{ inputs.s3_secret_key }}
-        TF_VAR_team: ${{ steps.fetch-team.outputs.team }}
-        TF_VAR_konnect_access_token: ${{ inputs.konnect_token }}
-      working-directory: ${{env.TERRAFORM_DIR}}
+      working-directory: ${{ github.action_path }}/terraform
 
     - name: Terraform destroy
       shell: bash
       if: ${{ inputs.action == 'destroy' }}
       run: |
         terraform destroy -auto-approve
-      env:
-        AWS_ENDPOINT_URL: ${{ inputs.s3_endpoint_url }}
-        AWS_ACCESS_KEY_ID: ${{ inputs.s3_access_key }}
-        AWS_SECRET_ACCESS_KEY: ${{ inputs.s3_secret_key }}
-        TF_VAR_team: ${{ steps.fetch-team.outputs.team }}
-        TF_VAR_konnect_access_token: ${{ inputs.konnect_token }}
-      working-directory: ${{env.TERRAFORM_DIR}}
+      working-directory: ${{ github.action_path }}/terraform

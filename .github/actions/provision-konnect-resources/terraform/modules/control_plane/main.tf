@@ -6,6 +6,7 @@ terraform {
   }
 }
 
+# Create a Konnect Control Plane
 resource "konnect_gateway_control_plane" "this" {
   name          = var.name
   description   = var.description

@@ -50,6 +50,7 @@ module "control_planes" {
   labels        = lookup(each.value, "labels", {})
   cluster_type  = lookup(each.value, "cluster_type", "CLUSTER_TYPE_HYBRID")
   auth_type     = lookup(each.value, "auth_type", "pki_client_certs")
+
   team = {
     id   = local.team.id
     name = local.team.name

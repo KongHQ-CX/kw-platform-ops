@@ -95,6 +95,7 @@ runs:
     - name: Terraform Init
       shell: bash
       run: |
+        pwd
         terraform init -upgrade \
           -backend-config=config.s3.tfbackend \
           -backend-config="bucket=konnect.team.resources.${{ inputs.konnect_team_name }}" \

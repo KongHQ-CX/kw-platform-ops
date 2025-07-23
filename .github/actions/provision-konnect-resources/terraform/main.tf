@@ -67,7 +67,7 @@ module "apis" {
   description  = lookup(each.value, "description", null)
   labels       = lookup(each.value, "labels", {})
   slug         = lookup(each.value, "slug", null)
-  spec_content = yamldecode(file("${var.gh_workspace_path}/${each.value.spec_content.file}"))
+  spec_content = file("${var.gh_workspace_path}/${each.value.spec_content.file}")
   api_version  = lookup(each.value, "version", null)
 }
 

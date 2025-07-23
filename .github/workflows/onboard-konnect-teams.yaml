@@ -1,4 +1,4 @@
-name: Provision Konnect Teams
+name: Onboard Konnect Teams
 
 on:
   workflow_dispatch:
@@ -6,7 +6,7 @@ on:
     branches:
       - main
     paths:
-      - 'teams/resources.yaml'
+      - "teams/resources.yaml"
 
 env:
   TF_VAR_config_file: ${{ github.workspace }}/teams/resources.yaml

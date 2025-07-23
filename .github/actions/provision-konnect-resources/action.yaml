@@ -36,21 +36,21 @@ inputs:
 runs:
   using: 'composite'
   steps:
-    - name: Install MinIO Client
-      shell: bash
-      run: |
-        if [ -f "/mc-cache/mc" ]; then
-          echo "Using cached MinIO Client"
-          cp /mc-cache/mc /usr/local/bin/mc
-        else
-          echo "Downloading MinIO Client"
-          wget -v https://dl.min.io/client/mc/release/linux-amd64/mc -O /usr/local/bin/mc
-        fi
-        chmod +x /usr/local/bin/mc
-        echo "MinIO Client installed successfully"
+    # - name: Install MinIO Client
+    #   shell: bash
+    #   run: |
+    #     if [ -f "/mc-cache/mc" ]; then
+    #       echo "Using cached MinIO Client"
+    #       cp /mc-cache/mc /usr/local/bin/mc
+    #     else
+    #       echo "Downloading MinIO Client"
+    #       wget -v https://dl.min.io/client/mc/release/linux-amd64/mc -O /usr/local/bin/mc
+    #     fi
+    #     chmod +x /usr/local/bin/mc
+    #     echo "MinIO Client installed successfully"
 
-    - name: Install vault cli
-      uses: eLco/setup-vault@v1
+    # - name: Install vault cli
+    #   uses: eLco/setup-vault@v1
 
     - name: Setup Terraform
       uses: hashicorp/setup-terraform@v3
@@ -176,16 +176,16 @@ runs:
         echo "::set-output name=team::$( echo $response_body | jq -c .data[0])"
       shell: bash
 
-    - name: Create S3 bucket if required
-      if: ${{ inputs.action == 'provision' }}
-      shell: bash
-      run: |
-        ./create-minio-bucket.sh konnect $RESOURCE_TYPE.$TEAM_NAME_NORMALIZED
-      env:
-        AWS_ENDPOINT_URL: ${{ inputs.s3_endpoint_url }}
-        AWS_ACCESS_KEY_ID: ${{ inputs.s3_access_key }}
-        AWS_SECRET_ACCESS_KEY: ${{ inputs.s3_secret_key }}
-      working-directory: ${{ github.action_path }}/scripts
+    # - name: Create S3 bucket if required
+    #   if: ${{ inputs.action == 'provision' }}
+    #   shell: bash
+    #   run: |
+    #     ./create-minio-bucket.sh konnect $RESOURCE_TYPE.$TEAM_NAME_NORMALIZED
+    #   env:
+    #     AWS_ENDPOINT_URL: ${{ inputs.s3_endpoint_url }}
+    #     AWS_ACCESS_KEY_ID: ${{ inputs.s3_access_key }}
+    #     AWS_SECRET_ACCESS_KEY: ${{ inputs.s3_secret_key }}
+    #   working-directory: ${{ github.action_path }}/scripts
 
     - name: Terraform Init
       shell: bash
@@ -199,6 +199,8 @@ runs:
           -backend-config="secret_key=${{ inputs.s3_secret_key }}"
       env:
         AWS_ENDPOINT_URL: ${{ inputs.s3_endpoint_url }}
+        AWS_ACCESS_KEY_ID: ${{ inputs.s3_access_key }}
+        AWS_SECRET_ACCESS_KEY: ${{ inputs.s3_secret_key }}
         TF_VAR_team: ${{ steps.fetch-team.outputs.team }}
         TF_VAR_konnect_access_token: ${{ inputs.konnect_token }}
       working-directory: ${{env.TERRAFORM_DIR}}
@@ -210,6 +212,8 @@ runs:
         terraform plan -out=tfplan
       env:
         AWS_ENDPOINT_URL: ${{ inputs.s3_endpoint_url }}
+        AWS_ACCESS_KEY_ID: ${{ inputs.s3_access_key }}
+        AWS_SECRET_ACCESS_KEY: ${{ inputs.s3_secret_key }}
         TF_VAR_team: ${{ steps.fetch-team.outputs.team }}
         TF_VAR_konnect_access_token: ${{ inputs.konnect_token }}
       working-directory: ${{env.TERRAFORM_DIR}}
@@ -222,6 +226,8 @@ runs:
         terraform apply -auto-approve tfplan
       env:
         AWS_ENDPOINT_URL: ${{ inputs.s3_endpoint_url }}
+        AWS_ACCESS_KEY_ID: ${{ inputs.s3_access_key }}
+        AWS_SECRET_ACCESS_KEY: ${{ inputs.s3_secret_key }}
         TF_VAR_team: ${{ steps.fetch-team.outputs.team }}
         TF_VAR_konnect_access_token: ${{ inputs.konnect_token }}
       working-directory: ${{env.TERRAFORM_DIR}}
@@ -233,6 +239,8 @@ runs:
         terraform destroy -auto-approve
       env:
         AWS_ENDPOINT_URL: ${{ inputs.s3_endpoint_url }}
+        AWS_ACCESS_KEY_ID: ${{ inputs.s3_access_key }}
+        AWS_SECRET_ACCESS_KEY: ${{ inputs.s3_secret_key }}
         TF_VAR_team: ${{ steps.fetch-team.outputs.team }}
         TF_VAR_konnect_access_token: ${{ inputs.konnect_token }}
       working-directory: ${{env.TERRAFORM_DIR}}

@@ -61,3 +61,17 @@ module "vault" {
   system_account_secret_path = "system-accounts/sa-${local.sanitized_team_names[each.value.name]}"
   system_account_token       = module.system-account[each.value.name].system_account_token
 }
+
+################################################################################
+# STEP 5: CREATE S3 BUCKETS FOR EACH TEAM TO STORE THEIR INDIVIDUAL STATES
+################################################################################
+
+# Create S3 bucket
+resource "aws_s3_bucket" "my_bucket" {
+  for_each = { for team in konnect_team.this : team.name => team }
+  bucket = "konnect.team.resources.${local.sanitized_team_names[each.value.name]}"
+
+  tags = {
+    Name        = "konnect.team.resources.${local.sanitized_team_names[each.value.name]}"
+  }
+}

@@ -16,13 +16,19 @@ jobs:
   onboard-konnect-teams:
     runs-on: ubuntu-latest
     env:
+      # Konnect related variables
       KONNECT_SERVER_URL: ${{ vars.KONNECT_SERVER_URL }}
       KONNECT_TOKEN: ${{ secrets.KONNECT_TOKEN }}
+
+      # Hashicorp Vault related variables
       VAULT_ADDR: ${{ vars.VAULT_ADDR }}
       VAULT_TOKEN: ${{ secrets.VAULT_TOKEN }}
+
+      # S3 related variables (for MinIO)
       AWS_ENDPOINT_URL: ${{ vars.AWS_ENDPOINT_URL }}
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -75,7 +81,7 @@ jobs:
           echo "RESOURCE_TYPE=$( cat ${{ env.TF_VAR_config_file }} | yq -r '.metadata.type' )" >> $GITHUB_ENV
         shell: bash
 
-      - name: Create S3 bucket if required
+      - name: Ensure TF state S3 bucket exists
         shell: bash
         run: |
           ./create-minio-bucket.sh konnect $RESOURCE_TYPE
@@ -88,9 +94,7 @@ jobs:
             -backend-config=config.s3.tfbackend \
             -backend-config="bucket=$RESOURCE_TYPE" \
             -backend-config="key=tfstate" \
-            -backend-config="region=main" \
-            -backend-config="access_key=${{ secrets.S3_ACCESS_KEY }}" \
-            -backend-config="secret_key=${{ secrets.S3_SECRET_KEY }}"
+            -backend-config="region=main"
         working-directory: ${{env.TERRAFORM_DIR}}
 
       - name: Terraform Plan

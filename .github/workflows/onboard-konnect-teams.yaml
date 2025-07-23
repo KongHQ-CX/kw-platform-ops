@@ -48,14 +48,14 @@ jobs:
         run: |
           config=$( cat ${{ env.TF_VAR_config_file }} | yq -r . )
 
-          # Validate metadata.type
+          # Validate metadata.type. Should be 'konnect.teams'
           metadata_type=$(echo "$config" | yq -r '.metadata.type')
           if [ "$metadata_type" != "konnect.teams" ]; then
             echo "Invalid metadata.type: $metadata_type. Expected 'konnect.teams'"
             exit 1
           fi
 
-          # Validate resources is an array
+          # Validate resources is an array.
           resources_type=$(echo "$config" | yq -r '.resources | type')
           if [ "$resources_type" != "!!seq" ]; then
             echo "Invalid resources type: $resources_type. Expected '!!seq' (array)"
@@ -69,7 +69,7 @@ jobs:
             exit 1
           fi
 
-          # Validate each resource type
+          # Validate each resource type. Should be 'konnect.team'.
           invalid_resources=$(echo "$config" | yq '[.resources[] | select(.type != "konnect.team")]')
           if [ "$(echo "$invalid_resources" | yq 'length')" -ne 0 ]; then
             echo "Invalid resource types found: $(echo "$invalid_resources" | yq -c '.[]')"

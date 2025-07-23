@@ -32,6 +32,9 @@ inputs:
   konnect_token:
     description: 'Konnect API token'
     required: true
+  team_name:
+    description: 'Team name to provision resources for'
+    required: true
 
 runs:
   using: 'composite'
@@ -104,16 +107,16 @@ runs:
         echo "Config validation passed"
       shell: bash
 
-    - name: Extract team name from git repo
-      run: |
-        REPO_NAME=$(basename $(git rev-parse --show-toplevel))
-        TEAM_NAME="${REPO_NAME#kw-}"
-        TEAM_NAME="${TEAM_NAME%-repo}"
-        TEAM_NAME_NORMALIZED=$(echo "$TEAM_NAME" | tr '[:upper:]' '[:lower:]' | tr ' ' '-')
+    # - name: Extract team name from git repo
+    #   run: |
+    #     REPO_NAME=$(basename $(git rev-parse --show-toplevel))
+    #     TEAM_NAME="${REPO_NAME#kw-}"
+    #     TEAM_NAME="${TEAM_NAME%-repo}"
+    #     TEAM_NAME_NORMALIZED=$(echo "$TEAM_NAME" | tr '[:upper:]' '[:lower:]' | tr ' ' '-')
         
-        echo "TEAM_NAME=$TEAM_NAME" >> $GITHUB_ENV
-        echo "TEAM_NAME_NORMALIZED=$TEAM_NAME_NORMALIZED" >> $GITHUB_ENV
-      shell: bash
+    #     echo "TEAM_NAME=$TEAM_NAME" >> $GITHUB_ENV
+    #     echo "TEAM_NAME_NORMALIZED=$TEAM_NAME_NORMALIZED" >> $GITHUB_ENV
+    #   shell: bash
 
     - name: Set resource variables from config file
       shell: bash
@@ -136,7 +139,7 @@ runs:
       run: |
         # Make a request to the Konnect API to fetch required team information
         # This is a GET request to https://global.api.konghq.com/v3/teams with a filter on the team name.
-        url_encoded_control_team_name=$(echo -n "$TEAM_NAME" | jq -s -R -r @uri)
+        url_encoded_control_team_name=$(echo -n "${{ inputs.team_name }}" | jq -s -R -r @uri)
         response=$(curl -Gs -d "filter[name][eq]=${url_encoded_control_team_name}" -w "%{http_code}" "https://global.api.konghq.com/v3/teams" -H "Authorization: Bearer ${{ inputs.konnect_token }}" -H "Content-Type: application/json")
         http_code=${response: -3}
         response_body=${response:0:-3}
@@ -166,7 +169,7 @@ runs:
       run: |
         terraform init -upgrade \
           -backend-config=config.s3.tfbackend \
-          -backend-config="bucket=$RESOURCE_TYPE.$TEAM_NAME_NORMALIZED" \
+          -backend-config="bucket=$RESOURCE_TYPE.${{ inputs.team_name }}" \
           -backend-config="key=tfstate" \
           -backend-config="region=main" \
           -backend-config="access_key=${{ inputs.s3_access_key }}" \

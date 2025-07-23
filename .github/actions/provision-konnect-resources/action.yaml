@@ -53,14 +53,11 @@ runs:
     - name: Set Environment Variables
       shell: bash
       run: |
-
         echo "TERRAFORM_DIR=${{ github.action_path }}/terraform" >> $GITHUB_ENV
         echo "VAULT_ADDR=${{ inputs.vault_address }}" >> $GITHUB_ENV
         echo "VAULT_TOKEN=${{ inputs.vault_token }}" >> $GITHUB_ENV
-        
         echo "TF_VAR_config_file=${{ inputs.config }}" >> $GITHUB_ENV
         echo "TF_VAR_konnect_server_url=https://${{ inputs.konnect_region }}.api.konghq.com" >> $GITHUB_ENV
-
 
     - name: Fetch team information
       id: fetch-team

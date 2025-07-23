@@ -17,14 +17,17 @@ jobs:
     runs-on: ubuntu-latest
     env:
       # Konnect related variables
+      # Also used for configuring TF Konnect provider
       KONNECT_SERVER_URL: ${{ vars.KONNECT_SERVER_URL }}
       KONNECT_TOKEN: ${{ secrets.KONNECT_TOKEN }}
 
       # Hashicorp Vault related variables
+      # Also used for configuring TF Vault provider
       VAULT_ADDR: ${{ vars.VAULT_ADDR }}
       VAULT_TOKEN: ${{ secrets.VAULT_TOKEN }}
 
       # S3 related variables (for MinIO)
+      # Also used for configuring TF backend
       AWS_ENDPOINT_URL: ${{ vars.AWS_ENDPOINT_URL }}
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -76,15 +79,13 @@ jobs:
           echo "Config validation passed"
         shell: bash
 
-      - name: Set resource variables from config file
-        run: |
-          echo "RESOURCE_TYPE=$( cat ${{ env.TF_VAR_config_file }} | yq -r '.metadata.type' )" >> $GITHUB_ENV
-        shell: bash
-
       - name: Ensure TF state S3 bucket exists
         shell: bash
         run: |
-          ./create-minio-bucket.sh konnect $RESOURCE_TYPE
+          # ./scripts/create-minio-bucket.sh
+          # $1 is the alias (konnect)
+          # $2 is the bucket name (konnect.teams)
+          ./create-minio-bucket.sh konnect konnect.teams
         working-directory: ${{ github.workspace }}/scripts
 
       - name: Terraform Init
@@ -92,7 +93,7 @@ jobs:
         run: |
           terraform init -upgrade \
             -backend-config=config.s3.tfbackend \
-            -backend-config="bucket=$RESOURCE_TYPE" \
+            -backend-config="bucket=konnect.teams" \
             -backend-config="key=tfstate" \
             -backend-config="region=main"
         working-directory: ${{env.TERRAFORM_DIR}}

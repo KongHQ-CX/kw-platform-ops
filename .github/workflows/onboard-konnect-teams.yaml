@@ -82,9 +82,6 @@ jobs:
       - name: Ensure TF state S3 bucket exists
         shell: bash
         run: |
-          # ./scripts/create-minio-bucket.sh
-          # $1 is the alias (konnect)
-          # $2 is the bucket name (konnect.teams)
           ./create-minio-bucket.sh konnect konnect.teams
         working-directory: ${{ github.workspace }}/scripts
 

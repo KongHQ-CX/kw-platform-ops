@@ -32,3 +32,9 @@ variable "team" {
   default     = "{}"
   type        = string
 }
+
+variable "gh_workspace_path" {
+  description = "The GitHub workspace path"
+  type        = string
+  default     = ""
+}

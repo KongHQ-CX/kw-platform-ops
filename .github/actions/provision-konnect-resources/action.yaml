@@ -58,7 +58,6 @@ runs:
         echo "AWS_ENDPOINT_URL=${{ inputs.s3_endpoint_url }}" >> $GITHUB_ENV
         echo "AWS_ACCESS_KEY_ID=${{ inputs.s3_access_key }}" >> $GITHUB_ENV
         echo "AWS_SECRET_ACCESS_KEY=${{ inputs.s3_secret_key }}" >> $GITHUB_ENV
-        echo "TF_VAR_team=${{ steps.fetch-team.outputs.team }}" >> $GITHUB_ENV
         echo "TF_VAR_konnect_access_token=${{ inputs.konnect_token }}" >> $GITHUB_ENV
         echo "TF_VAR_config_file=${{ inputs.config }}" >> $GITHUB_ENV
         echo "TF_VAR_konnect_server_url=https://${{ inputs.konnect_region }}.api.konghq.com" >> $GITHUB_ENV
@@ -89,8 +88,8 @@ runs:
           exit 1
         fi
 
-        # Save the team info to an output variable
-        echo "::set-output name=team::$( echo $response_body | jq -c .data[0])"
+        # Save the team info to the TF_VAR_team environment variable
+        echo "TF_VAR_team=$( echo $response_body | jq -c .data[0])" >> $GITHUB_ENV
       shell: bash
 
     - name: Terraform Init

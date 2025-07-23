@@ -46,87 +46,15 @@ runs:
         terraform_version: 'latest'
 
     - name: Validate config
-      run: |
-        config_content=$(cat ${{ inputs.config }} | yq -r .)
-        
-        # Validate metadata.type
-        metadata_type=$(echo "$config_content" | yq -r '.metadata.type')
-        if [ "$metadata_type" != "konnect.team.resources" ]; then
-          echo "Invalid metadata.type: $metadata_type. Expected 'konnect.team.resources'"
-          exit 1
-        fi
-
-        # Validate metadata.team is required
-        metadata_team=$(echo "$config_content" | yq -r '.metadata.team')
-        if [ -z "$metadata_team" ]; then
-          echo "metadata.team is required"
-          exit 1
-        fi
-
-        # Validate resources is an array
-        resources_type=$(echo "$config_content" | yq -r '.resources | type')
-        if [ "$resources_type" != "!!seq" ]; then
-          echo "Invalid resources type: $resources_type. Expected '!!seq' (array)"
-          exit 1
-        fi
-
-        allowed_types=(
-          "konnect.control_plane"
-          "konnect.api_product"
-          "konnect.api"
-          "konnect.api_document"
-          "konnect.api_specification"
-          "konnect.api_implementation"
-          "konnect.api_publication"
-          "konnect.cloud_gateway_network"
-          "konnect.cloud_gateway_configuration"
-          "konnect.application_auth_strategy"
-          "konnect.developer_portal"
-          "konnect.portal_auth"
-          "konnect.portal_custom_domain"
-          "konnect.portal_team"
-          "konnect.portal_customization"
-          "konnect.portal_page"
-          "konnect.portal_snippet"
-        )
-        invalid_resources=""
-        
-        for rtype in $(echo "$config_content" | yq -r '.resources[].type'); do
-          if ! printf '%s\n' "${allowed_types[@]}" | grep -qx "$rtype"; then
-            invalid_resources+="$rtype\n"
-          fi
-        done
-        
-        if [ -n "$invalid_resources" ]; then
-          echo "Invalid resource types found:"
-          echo -e "$invalid_resources"
-          echo "Expected one of: ${allowed_types[*]}"
-          exit 1
-        fi
-
-        echo "Config validation passed"
-      shell: bash
-
-    # - name: Extract team name from git repo
-    #   run: |
-    #     REPO_NAME=$(basename $(git rev-parse --show-toplevel))
-    #     TEAM_NAME="${REPO_NAME#kw-}"
-    #     TEAM_NAME="${TEAM_NAME%-repo}"
-    #     TEAM_NAME_NORMALIZED=$(echo "$TEAM_NAME" | tr '[:upper:]' '[:lower:]' | tr ' ' '-')
-        
-    #     echo "TEAM_NAME=$TEAM_NAME" >> $GITHUB_ENV
-    #     echo "TEAM_NAME_NORMALIZED=$TEAM_NAME_NORMALIZED" >> $GITHUB_ENV
-    #   shell: bash
-
-    - name: Set resource variables from config file
       shell: bash
       run: |
-        config_content=$(cat ${{ inputs.config }} | yq -r .)
-        RESOURCE_TYPE=$(echo "$config_content" | yq -r '.metadata.type')
-        TERRAFORM_DIR=${{ github.action_path }}/terraform
+        ${{ github.action_path }}/scripts/validate-config.sh "${{ inputs.config }}"
 
-        echo "RESOURCE_TYPE=$RESOURCE_TYPE" >> $GITHUB_ENV
-        echo "TERRAFORM_DIR=$TERRAFORM_DIR" >> $GITHUB_ENV
+    - name: Set Environment Variables
+      shell: bash
+      run: |
+
+        echo "TERRAFORM_DIR=${{ github.action_path }}/terraform" >> $GITHUB_ENV
         echo "VAULT_ADDR=${{ inputs.vault_address }}" >> $GITHUB_ENV
         echo "VAULT_TOKEN=${{ inputs.vault_token }}" >> $GITHUB_ENV
         
@@ -169,7 +97,7 @@ runs:
       run: |
         terraform init -upgrade \
           -backend-config=config.s3.tfbackend \
-          -backend-config="bucket=$RESOURCE_TYPE.${{ inputs.konnect_team_name }}" \
+          -backend-config="bucket=konnect.team.resources.${{ inputs.konnect_team_name }}" \
           -backend-config="key=tfstate" \
           -backend-config="region=main" \
           -backend-config="access_key=${{ inputs.s3_access_key }}" \

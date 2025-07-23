@@ -54,8 +54,6 @@ resource "tls_self_signed_cert" "this" {
   }
 }
 
-
-
 resource "time_sleep" "delay" {
   create_duration = "30s"
 }

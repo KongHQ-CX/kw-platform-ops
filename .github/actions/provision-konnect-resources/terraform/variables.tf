@@ -27,11 +27,10 @@ variable "config_file" {
   default     = ""
 }
 
-# variable "team" {
-#   description = "The team to assign the resources to"
-#   default     = "{}"
-#   type        = string
-# }
+variable "team_name" {
+  description = "The name of the team to create resources for"
+  type        = string
+}
 
 variable "gh_workspace_path" {
   description = "The GitHub workspace path"

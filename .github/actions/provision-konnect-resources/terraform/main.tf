@@ -45,7 +45,7 @@ locals {
 
 data "terracurl_request" "fetch_team" {
   name   = "products"
-  url    = "https://global.api.konghq.com/v3/teams?filter[name][eq]=flight-operations"
+  url    = "https://global.api.konghq.com/v3/teams?filter[name][eq]=${var.team_name}"
   method = "GET"
 
   headers = {

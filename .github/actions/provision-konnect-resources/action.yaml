@@ -62,36 +62,7 @@ runs:
         echo "TF_VAR_config_file=${{ inputs.config }}" >> $GITHUB_ENV
         echo "TF_VAR_konnect_server_url=https://${{ inputs.konnect_region }}.api.konghq.com" >> $GITHUB_ENV
         echo "TF_VAR_gh_workspace_path=${{ github.workspace }}" >> $GITHUB_ENV
-
-    # - name: Fetch team information
-    #   id: fetch-team
-    #   run: |
-    #     # Make a request to the Konnect API to fetch required team information
-    #     # This is a GET request to https://global.api.konghq.com/v3/teams with a filter on the team name.
-    #     url_encoded_team_name=$(echo -n "${{ inputs.konnect_team_name }}" | jq -s -R -r @uri)
-    #     response=$(curl -Gs -d "filter[name][eq]=${url_encoded_team_name}" -w "%{http_code}" "https://global.api.konghq.com/v3/teams" -H "Authorization: Bearer ${{ inputs.konnect_token }}" -H "Content-Type: application/json")
-    #     http_code=${response: -3}
-    #     response_body=${response:0:-3}
-
-    #     # Check the response code
-    #     if [ "$http_code" -ne 200 ]; then
-    #       echo "Request failed with status code $http_code"
-    #       echo "Response body: $response_body"
-    #       exit 1
-    #     fi
-
-    #     echo "Request succeeded with status code $http_code"
-
-    #     # Ensure only one team is returned in the response.
-    #     if [ $(echo "$response_body" | jq -r '.data | length') -ne 1 ]; then
-    #       echo "Expected one team to be returned, got $(echo "$response_body" | jq -r '.data | length')"
-    #       echo "Response body: $response_body"
-    #       exit 1
-    #     fi
-
-    #     # Save the team info to the TF_VAR_team environment variable
-    #     echo "TF_VAR_team=$( echo $response_body | jq -c .data[0])" >> $GITHUB_ENV
-    #   shell: bash
+        echo "TF_VAR_team_name=${{ inputs.konnect_team_name }}" >> $GITHUB_ENV
 
     - name: Terraform Init
       shell: bash

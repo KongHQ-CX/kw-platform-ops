@@ -55,7 +55,7 @@ data "terracurl_request" "fetch_team" {
     200
   ]
 
-  max_retry      = 1
+  max_retry      = 3
   retry_interval = 10
 }
 

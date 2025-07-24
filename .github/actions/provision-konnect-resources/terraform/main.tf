@@ -135,15 +135,3 @@ module "apis" {
 #   auto_approve_registrations = lookup(each.value, "auto_approve_registrations", null)
 #   visibility                 = lookup(each.value, "visibility", "private")
 # }
-
-# module "team_role" {
-#   source = "./modules/team_role"
-
-#   team = {
-#     id   = lookup(local.team, "id", "")
-#     name = lookup(local.team, "name", "")
-#   }
-#   region         = lookup(local.metadata, "region", "")
-#   control_planes = [for k, v in module.control_planes : v.control_plane]
-#   api_products   = [for k, v in module.api_products : v.api_product]
-# }

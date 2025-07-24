@@ -23,7 +23,7 @@ resource "konnect_api" "this" {
 
 resource "konnect_api_publication" "this" {
 
-  for_each = { for portal in var.portals : portal.name => portal }
+  for_each = { for portal in var.portals : portal.id => portal }
 
   provider = konnect-beta
   api_id = konnect_api.this.id

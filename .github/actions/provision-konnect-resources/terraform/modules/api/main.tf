@@ -28,6 +28,6 @@ resource "konnect_api_publication" "this" {
   provider = konnect-beta
   api_id = konnect_api.this.id
   
-  portal_id                  = "4e0c036d-5bac-43e5-a85a-0d88203ecce1" # Hardcoded for now
+  portal_id                  = each.value.id
   visibility                 = lookup(each.value, "visibility", "private")
 }

@@ -86,6 +86,7 @@ module "apis" {
   slug         = lookup(each.value, "slug", null)
   spec_content = file("${var.gh_workspace_path}/${each.value.spec_content.file}")
   api_version  = lookup(each.value, "version", null)
+  portals      = lookup(each.value, "portals", [])
 }
 
 # module "api_documents" {

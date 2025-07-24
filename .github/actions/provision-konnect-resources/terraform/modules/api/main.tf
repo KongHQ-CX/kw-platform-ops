@@ -20,3 +20,14 @@ resource "konnect_api" "this" {
   spec_content = var.spec_content
   version      = var.api_version
 }
+
+resource "konnect_api_publication" "this" {
+
+  for_each = { for portal in var.portals : portal.name => portal }
+
+  provider = konnect-beta
+  api_id = konnect_api.this.id
+  
+  portal_id                  = "4e0c036d-5bac-43e5-a85a-0d88203ecce1" # Hardcoded for now
+  visibility                 = lookup(each.value, "visibility", "private")
+}

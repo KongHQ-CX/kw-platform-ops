@@ -38,3 +38,9 @@ variable "api_version" {
   type        = string
   default     = null
 }
+
+variable "portals" {
+  description = "A list of portals to publish this API to. If empty, the API will not be published to any portal"
+  type        = list(any)
+  default     = []
+}

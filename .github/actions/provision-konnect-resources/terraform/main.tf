@@ -6,6 +6,10 @@ terraform {
     konnect = {
       source = "kong/konnect"
     }
+    terracurl = {
+      source  = "devops-rob/terracurl"
+      version = "1.0.1"
+    }
   }
 }
 
@@ -39,6 +43,23 @@ locals {
   }
 }
 
+data "terracurl_request" "test" {
+  name   = "products"
+  url    = "https://global.api.konghq.com/v3/teams?filter[name][eq]=flight-operations"
+  method = "GET"
+
+  headers = {
+    "Authorization" = "Bearer ${var.konnect_access_token}"
+  }
+
+  response_codes = [
+    200
+  ]
+
+  max_retry      = 1
+  retry_interval = 10
+}
+
 module "control_planes" {
   source = "./modules/control_plane"
 
@@ -69,6 +90,10 @@ module "apis" {
   slug         = lookup(each.value, "slug", null)
   spec_content = file("${var.gh_workspace_path}/${each.value.spec_content.file}")
   api_version  = lookup(each.value, "version", null)
+}
+
+output "response" {
+  value = jsondecode(data.terracurl_request.test.response)
 }
 
 # module "api_documents" {

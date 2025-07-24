@@ -17,7 +17,7 @@ locals {
   config                       = yamldecode(file(var.config_file))
   metadata                     = lookup(local.config, "metadata", {})
   resources                    = lookup(local.config, "resources", [])
-  team                         = jsondecode(var.team)
+  # team                         = jsondecode(var.team)
   control_planes               = [for resource in local.resources : resource if resource.type == "konnect.control_plane"]
   api_products                 = [for resource in local.resources : resource if resource.type == "konnect.api_product"]
   apis                         = [for resource in local.resources : resource if resource.type == "konnect.api"]
@@ -43,7 +43,7 @@ locals {
   }
 }
 
-data "terracurl_request" "test" {
+data "terracurl_request" "fetch_team" {
   name   = "products"
   url    = "https://global.api.konghq.com/v3/teams?filter[name][eq]=flight-operations"
   method = "GET"
@@ -72,10 +72,7 @@ module "control_planes" {
   cluster_type  = lookup(each.value, "cluster_type", "CLUSTER_TYPE_HYBRID")
   auth_type     = lookup(each.value, "auth_type", "pki_client_certs")
 
-  team = {
-    id   = local.team.id
-    name = local.team.name
-  }
+  team = data.terracurl_request.fetch_team.response.data[0]
 }
 
 module "apis" {
@@ -90,10 +87,6 @@ module "apis" {
   slug         = lookup(each.value, "slug", null)
   spec_content = file("${var.gh_workspace_path}/${each.value.spec_content.file}")
   api_version  = lookup(each.value, "version", null)
-}
-
-output "response" {
-  value = jsondecode(data.terracurl_request.test.response)
 }
 
 # module "api_documents" {

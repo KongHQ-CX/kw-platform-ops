@@ -17,7 +17,6 @@ locals {
   config                       = yamldecode(file(var.config_file))
   metadata                     = lookup(local.config, "metadata", {})
   resources                    = lookup(local.config, "resources", [])
-  # team                         = jsondecode(var.team)
   control_planes               = [for resource in local.resources : resource if resource.type == "konnect.control_plane"]
   api_products                 = [for resource in local.resources : resource if resource.type == "konnect.api_product"]
   apis                         = [for resource in local.resources : resource if resource.type == "konnect.api"]

@@ -2,21 +2,28 @@ metadata:
   format_version: 1.0.0
   type: konnect.teams
   description: Teams onboarded to the Konnect APIM platform
-resources: 
-  - type: konnect.team
-    name: flight-operations
-    description: Flight Operations team is building Flight Operations related services
-    entitlements:
-      - 'konnect.control_plane'
-      - 'konnect.api_product'
-      - 'konnect.api'
-    labels:
-      TID: KTEAM_00001
-
-  - type: konnect.team
-    name: customer-service
-    description: Customer Service team is building Customer Service related services
-    entitlements:
-      - 'konnect.control_plane'
-    labels:
-      TID: KTEAM_00002
+resources:
+- type: konnect.team
+  name: flight-operations
+  description: Flight Operations team is building Flight Operations related services
+  entitlements:
+  - konnect.control_plane
+  - konnect.api_product
+  - konnect.api
+  labels:
+    TID: KTEAM_00001
+- type: konnect.team
+  name: customer-service
+  description: Customer Service team is building Customer Service related services
+  entitlements:
+  - konnect.control_plane
+  labels:
+    TID: KTEAM_00002
+- type: konnect.team
+  name: test
+  description: this is a test team
+  labels:
+    TID: KTEAM_00003
+  entitlements:
+  - konnect.control_plane
+  - konnect.api

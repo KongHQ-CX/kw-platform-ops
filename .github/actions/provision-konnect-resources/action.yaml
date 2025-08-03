@@ -8,31 +8,37 @@ inputs:
     description: 'Action to perform'
     required: true
     default: 'provision'
-  vault_address:
+  vault-address:
     description: 'Vault address'
     required: false
     default: 'http://localhost:8300'
-  vault_token:
+  vault-token:
     description: 'Vault token'
     required: true
-  s3_endpoint_url:
+  aws-endpoint-url:
     description: 'S3 endpoint URL'
-    required: true
-    default: 'http://localhost:9000'
-  s3_access_key:
+    required: false
+  aws-access-key-id:
     description: 'S3 access key'
     required: true
-  s3_secret_key:
+  aws-secret-access-key:
     description: 'S3 secret key'
     required: true
-  konnect_region:
+  aws-session-token:
+    description: 'S3 session token'
+    required: false
+  aws-region:
+    description: 'AWS region for S3'
+    required: false
+    default: 'eu-central-1'
+  konnect-region:
     description: "Konnect region"
     required: false
     default: "eu"
-  konnect_token:
+  konnect-token:
     description: 'Konnect API token'
     required: true
-  konnect_team_name:
+  konnect-team-name:
     description: 'Team name to provision resources for'
     required: true
 
@@ -45,6 +51,13 @@ runs:
       with:
         terraform_version: 'latest'
 
+    - uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ inputs.aws-access-key-id }}
+        aws-secret-access-key: ${{ inputs.aws-secret-access-key }}
+        aws-session-token: ${{ inputs.aws-session-token }}
+        aws-region: ${{ inputs.aws-region }}
+
     - name: Validate config
       shell: bash
       run: |
@@ -53,27 +66,27 @@ runs:
     - name: Setup Terraform Environment
       shell: bash
       run: |
-        echo "VAULT_ADDR=${{ inputs.vault_address }}" >> $GITHUB_ENV
-        echo "VAULT_TOKEN=${{ inputs.vault_token }}" >> $GITHUB_ENV
-        echo "AWS_ENDPOINT_URL=${{ inputs.s3_endpoint_url }}" >> $GITHUB_ENV
-        echo "AWS_ACCESS_KEY_ID=${{ inputs.s3_access_key }}" >> $GITHUB_ENV
-        echo "AWS_SECRET_ACCESS_KEY=${{ inputs.s3_secret_key }}" >> $GITHUB_ENV
-        echo "TF_VAR_konnect_access_token=${{ inputs.konnect_token }}" >> $GITHUB_ENV
+        echo "VAULT_ADDR=${{ inputs.vault-address }}" >> $GITHUB_ENV
+        echo "vault-token=${{ inputs.vault-token }}" >> $GITHUB_ENV
+        # echo "AWS_ENDPOINT_URL=${{ inputs.aws-endpoint-url }}" >> $GITHUB_ENV
+        # echo "AWS_ACCESS_KEY_ID=${{ inputs.aws-access-key-id }}" >> $GITHUB_ENV
+        # echo "AWS_SECRET_ACCESS_KEY=${{ inputs.aws-secret-access-key }}" >> $GITHUB_ENV
+        echo "TF_VAR_konnect_access_token=${{ inputs.konnect-token }}" >> $GITHUB_ENV
         echo "TF_VAR_config_file=${{ inputs.config }}" >> $GITHUB_ENV
-        echo "TF_VAR_konnect_server_url=https://${{ inputs.konnect_region }}.api.konghq.com" >> $GITHUB_ENV
+        echo "TF_VAR_konnect_server_url=https://${{ inputs.konnect-region }}.api.konghq.com" >> $GITHUB_ENV
         echo "TF_VAR_gh_workspace_path=${{ github.workspace }}" >> $GITHUB_ENV
-        echo "TF_VAR_team_name=${{ inputs.konnect_team_name }}" >> $GITHUB_ENV
+        echo "TF_VAR_team_name=${{ inputs.konnect-team-name }}" >> $GITHUB_ENV
 
     - name: Terraform Init
       shell: bash
       run: |
         terraform init -upgrade \
           -backend-config=config.s3.tfbackend \
-          -backend-config="bucket=konnect.team.resources.${{ inputs.konnect_team_name }}" \
+          -backend-config="bucket=kw.konnect.team.resources.${{ inputs.konnect-team-name }}" \
           -backend-config="key=tfstate" \
-          -backend-config="region=main" \
-          -backend-config="access_key=${{ inputs.s3_access_key }}" \
-          -backend-config="secret_key=${{ inputs.s3_secret_key }}"
+          -backend-config="region=${{ inputs.aws-region }}" \
+          # -backend-config="access_key=${{ inputs.aws-access-key-id }}" \
+          # -backend-config="secret_key=${{ inputs.aws-secret-access-key }}"
       working-directory: ${{ github.action_path }}/terraform
 
     - name: Terraform Plan

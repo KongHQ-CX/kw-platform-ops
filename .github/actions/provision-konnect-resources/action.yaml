@@ -84,10 +84,7 @@ runs:
         terraform init -upgrade \
           -backend-config=config.s3.tfbackend \
           -backend-config="bucket=kw.konnect.team.resources.${{ inputs.konnect-team-name }}" \
-          -backend-config="key=tfstate" \
-          -backend-config="region=${{ inputs.aws-region }}" \
-          # -backend-config="access_key=${{ inputs.aws-access-key-id }}" \
-          # -backend-config="secret_key=${{ inputs.aws-secret-access-key }}"
+          -backend-config="key=tfstate"
       working-directory: ${{ github.action_path }}/terraform
 
     - name: Terraform Plan

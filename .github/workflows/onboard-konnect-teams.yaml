@@ -17,28 +17,22 @@ jobs:
     runs-on: ubuntu-latest
     env:
       # Konnect related variables
-      # Also used for configuring TF Konnect provider
+      # Used for configuring TF Konnect provider
       KONNECT_SERVER_URL: ${{ vars.KONNECT_SERVER_URL }}
       KONNECT_TOKEN: ${{ secrets.KONNECT_TOKEN }}
 
       # Hashicorp Vault related variables
-      # Also used for configuring TF Vault provider
+      # Used for configuring TF Vault provider
       VAULT_ADDR: ${{ vars.VAULT_ADDR }}
       VAULT_TOKEN: ${{ secrets.VAULT_TOKEN }}
 
       # S3 related variables (for MinIO)
-      # Also used for configuring TF backend
+      # Used for configuring TF backend
       BUCKET_NAME: "kw.konnect.teams"
-      # AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      # AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      # AWS_REGION: ${{ vars.AWS_REGION }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      # - name: Install MinIO Client
-      #   uses: ./.github/actions/setup-minio-client
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3

@@ -57,6 +57,7 @@ runs:
         aws-secret-access-key: ${{ inputs.aws-secret-access-key }}
         aws-session-token: ${{ inputs.aws-session-token }}
         aws-region: ${{ inputs.aws-region }}
+        skip-session-tagging: true # For Demo purposes, we skip session tagging
 
     - name: Validate config
       shell: bash

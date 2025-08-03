@@ -28,21 +28,32 @@ jobs:
 
       # S3 related variables (for MinIO)
       # Also used for configuring TF backend
-      AWS_ENDPOINT_URL: ${{ vars.AWS_ENDPOINT_URL }}
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      BUCKET_NAME: "kw.konnect.teams"
+      # AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      # AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      # AWS_REGION: ${{ vars.AWS_REGION }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install MinIO Client
-        uses: ./.github/actions/setup-minio-client
+      # - name: Install MinIO Client
+      #   uses: ./.github/actions/setup-minio-client
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: "latest"
+
+      - id: install-aws-cli
+        uses: unfor19/install-aws-cli-action@v1
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: ${{ vars.AWS_REGION }}
 
       - name: Validate config
         run: |
@@ -82,7 +93,7 @@ jobs:
       - name: Ensure TF state S3 bucket exists
         shell: bash
         run: |
-          ./create-minio-bucket.sh konnect konnect.teams
+          ./create-s3-bucket.sh ${{ env.BUCKET_NAME }}
         working-directory: ${{ github.workspace }}/scripts
 
       - name: Terraform Init
@@ -90,9 +101,9 @@ jobs:
         run: |
           terraform init -upgrade \
             -backend-config=config.s3.tfbackend \
-            -backend-config="bucket=konnect.teams" \
+            -backend-config="bucket=${{ env.BUCKET_NAME }}" \
             -backend-config="key=tfstate" \
-            -backend-config="region=main"
+            -backend-config="region=${{ env.AWS_REGION }}" \
         working-directory: ${{env.TERRAFORM_DIR}}
 
       - name: Terraform Plan

@@ -69,9 +69,9 @@ module "vault" {
 # Create S3 bucket
 resource "aws_s3_bucket" "my_bucket" {
   for_each = { for team in konnect_team.this : team.name => team }
-  bucket = "konnect.team.resources.${local.sanitized_team_names[each.value.name]}"
+  bucket = "kw.konnect.team.resources.${local.sanitized_team_names[each.value.name]}"
 
   tags = {
-    Name        = "konnect.team.resources.${local.sanitized_team_names[each.value.name]}"
+    Name        = "kw.konnect.team.resources.${local.sanitized_team_names[each.value.name]}"
   }
 }

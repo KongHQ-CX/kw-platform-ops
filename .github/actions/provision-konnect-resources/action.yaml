@@ -85,11 +85,7 @@ runs:
           -backend-config=config.s3.tfbackend \
           -backend-config="bucket=kw.konnect.team.resources.${{ inputs.konnect-team-name }}" \
           -backend-config="key=tfstate" \
-          -backend-config="region=${{ inputs.aws-region }}" \
-          -backend-config="access_key=${{ inputs.aws-access-key-id }}" \
-          -backend-config="secret_key=${{ inputs.aws-secret-access-key }}" \
-          -backend-config="session_token=${{ inputs.aws-session-token }}"
-      # Note: The session token is optional, so it can be omitted if not provided.
+          -backend-config="region=${{ inputs.aws-region }}"
       working-directory: ${{ github.action_path }}/terraform
 
     - name: Terraform Plan

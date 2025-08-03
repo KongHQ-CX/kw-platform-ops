@@ -51,14 +51,6 @@ runs:
       with:
         terraform_version: 'latest'
 
-    - uses: aws-actions/configure-aws-credentials@v4
-      with:
-        aws-access-key-id: ${{ inputs.aws-access-key-id }}
-        aws-secret-access-key: ${{ inputs.aws-secret-access-key }}
-        aws-session-token: ${{ inputs.aws-session-token }}
-        aws-region: ${{ inputs.aws-region }}
-        mask-aws-account-id: false  # This skips the GetCallerIdentity call
-
     - name: Validate config
       shell: bash
       run: |
@@ -67,11 +59,19 @@ runs:
     - name: Setup Terraform Environment
       shell: bash
       run: |
+
+        # Set Vault environment variables
         echo "VAULT_ADDR=${{ inputs.vault-address }}" >> $GITHUB_ENV
         echo "vault-token=${{ inputs.vault-token }}" >> $GITHUB_ENV
-        # echo "AWS_ENDPOINT_URL=${{ inputs.aws-endpoint-url }}" >> $GITHUB_ENV
-        # echo "AWS_ACCESS_KEY_ID=${{ inputs.aws-access-key-id }}" >> $GITHUB_ENV
-        # echo "AWS_SECRET_ACCESS_KEY=${{ inputs.aws-secret-access-key }}" >> $GITHUB_ENV
+
+        # Set AWS environment variables
+        echo "AWS_ENDPOINT_URL=${{ inputs.aws-endpoint-url }}" >> $GITHUB_ENV
+        echo "AWS_ACCESS_KEY_ID=${{ inputs.aws-access-key-id }}" >> $GITHUB_ENV
+        echo "AWS_SECRET_ACCESS_KEY=${{ inputs.aws-secret-access-key }}" >> $GITHUB_ENV
+        echo "AWS_SESSION_TOKEN=${{ inputs.aws-session-token }}" >> $GITHUB_ENV
+        echo "AWS_REGION=${{ inputs.aws-region }}" >> $GITHUB_ENV
+
+        # Set Konnect & Terraform environment variables
         echo "TF_VAR_konnect_access_token=${{ inputs.konnect-token }}" >> $GITHUB_ENV
         echo "TF_VAR_config_file=${{ inputs.config }}" >> $GITHUB_ENV
         echo "TF_VAR_konnect_server_url=https://${{ inputs.konnect-region }}.api.konghq.com" >> $GITHUB_ENV

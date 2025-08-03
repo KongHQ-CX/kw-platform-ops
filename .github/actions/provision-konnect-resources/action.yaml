@@ -71,10 +71,12 @@ runs:
         echo "AWS_SESSION_TOKEN=${{ inputs.aws-session-token }}" >> $GITHUB_ENV
         echo "AWS_REGION=${{ inputs.aws-region }}" >> $GITHUB_ENV
 
-        # Set Konnect & Terraform environment variables
-        echo "TF_VAR_konnect_access_token=${{ inputs.konnect-token }}" >> $GITHUB_ENV
-        echo "TF_VAR_config_file=${{ inputs.config }}" >> $GITHUB_ENV
+        # Set Konnect environment variables
         echo "TF_VAR_konnect_server_url=https://${{ inputs.konnect-region }}.api.konghq.com" >> $GITHUB_ENV
+        echo "TF_VAR_konnect_access_token=${{ inputs.konnect-token }}" >> $GITHUB_ENV
+
+        # Set other Terraform variables
+        echo "TF_VAR_config_file=${{ inputs.config }}" >> $GITHUB_ENV
         echo "TF_VAR_gh_workspace_path=${{ github.workspace }}" >> $GITHUB_ENV
         echo "TF_VAR_team_name=${{ inputs.konnect-team-name }}" >> $GITHUB_ENV
 

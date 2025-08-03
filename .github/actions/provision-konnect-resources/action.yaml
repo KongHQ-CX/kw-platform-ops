@@ -57,8 +57,7 @@ runs:
         aws-secret-access-key: ${{ inputs.aws-secret-access-key }}
         aws-session-token: ${{ inputs.aws-session-token }}
         aws-region: ${{ inputs.aws-region }}
-        role-skip-session-tagging: true
-        mask-aws-account-id: false
+        mask-aws-account-id: false  # This skips the GetCallerIdentity call
 
     - name: Validate config
       shell: bash

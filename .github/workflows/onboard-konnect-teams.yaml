@@ -26,9 +26,8 @@ jobs:
       VAULT_ADDR: ${{ vars.VAULT_ADDR }}
       VAULT_TOKEN: ${{ secrets.VAULT_TOKEN }}
 
-      # S3 related variables (for MinIO)
-      # Used for configuring TF backend
-      BUCKET_NAME: "kw.konnect.teams"
+      # Terraform state S3 bucket
+      AWS_S3_BUCKET: "kw.konnect.teams"
 
     steps:
       - name: Checkout repository
@@ -87,7 +86,7 @@ jobs:
       - name: Ensure TF state S3 bucket exists
         shell: bash
         run: |
-          ./create-s3-bucket.sh ${{ env.BUCKET_NAME }}
+          ./create-s3-bucket.sh ${{ env.AWS_S3_BUCKET }}
         working-directory: ${{ github.workspace }}/scripts
 
       - name: Terraform Init
@@ -95,7 +94,7 @@ jobs:
         run: |
           terraform init -upgrade \
             -backend-config=config.s3.tfbackend \
-            -backend-config="bucket=${{ env.BUCKET_NAME }}" \
+            -backend-config="bucket=${{ env.AWS_S3_BUCKET }}" \
             -backend-config="key=tfstate" \
             -backend-config="region=${{ env.AWS_REGION }}" \
         working-directory: ${{env.TERRAFORM_DIR}}

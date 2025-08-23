@@ -2,12 +2,4 @@ metadata:
   format_version: 1.0.0
   type: konnect.teams
   description: Teams onboarded to the Konnect APIM platform
-resources:
-- type: konnect.team
-  name: flight-operations
-  description: Flight Operations Team
-  labels:
-    TID: KTEAM_00001
-  entitlements:
-  - konnect.control_plane
-  - konnect.api
+resources: []

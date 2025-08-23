@@ -142,7 +142,6 @@ FORM_HTML = '''
       <div class="checkbox-group">
         <label>Entitlements:</label><br>
         <label><input type="checkbox" name="entitlements" value="konnect.control_plane"> Control Plane</label>
-        <label><input type="checkbox" name="entitlements" value="konnect.api_product"> API Product</label>
         <label><input type="checkbox" name="entitlements" value="konnect.api"> API</label>
       </div>
       <button type="submit">Submit</button>

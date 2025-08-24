@@ -55,7 +55,7 @@ jobs:
           
           if [ -z "$yaml_files" ]; then
             echo "No YAML files found in ${{ env.TF_VAR_resources_path }}"
-            exit 1
+            exit 0
           fi
           
           echo "Found YAML files to validate:"

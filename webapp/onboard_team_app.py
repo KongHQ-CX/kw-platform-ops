@@ -229,7 +229,7 @@ def onboard_team():
             yaml.dump(team_data, f, sort_keys=False, default_flow_style=False)
 
         # Commit and push
-        subprocess.check_call(['git', '-C', temp_dir, 'add', f'teams2/{team_filename}'])
+        subprocess.check_call(['git', '-C', temp_dir, 'add', f'teams/{team_filename}'])
         subprocess.check_call(['git', '-C', temp_dir, 'commit', '-m', f"Onboard team: {name}"])
         subprocess.check_call(['git', '-C', temp_dir, 'push', 'origin', branch_name])
 

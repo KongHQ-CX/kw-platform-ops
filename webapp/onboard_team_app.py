@@ -5,7 +5,7 @@ from flask import Flask, render_template_string, request, redirect, url_for, sen
 
 app = Flask(__name__)
 
-TEAMS2_DIR_PATH = os.path.join(os.path.dirname(__file__), '../teams2')
+TEAMS_DIR_PATH = os.path.join(os.path.dirname(__file__), '../teams2')
 
 
 @app.route('/static/<path:filename>')
@@ -177,7 +177,7 @@ def onboard_team():
         
         max_tid = 0
         # Look through all existing yaml files in teams2 to find the highest TID
-        teams2_pattern = os.path.join(os.path.dirname(TEAMS2_DIR_PATH), 'teams2', '*.yaml')
+        teams2_pattern = os.path.join(os.path.dirname(TEAMS_DIR_PATH), 'teams2', '*.yaml')
         for yaml_file in glob.glob(teams2_pattern):
             try:
                 with open(yaml_file, 'r') as f:

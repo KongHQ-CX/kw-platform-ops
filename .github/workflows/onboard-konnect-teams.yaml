@@ -8,10 +8,10 @@ on:
       - feat/per-team-sor
     paths:
       # - "teams/resources.yaml"
-      - "teams2/**"
+      - "teams/*.yaml"
 
 env:
-  TF_VAR_config_file: ${{ github.workspace }}/teams2
+  TF_VAR_config_file: ${{ github.workspace }}/teams
   TERRAFORM_DIR: ${{ github.workspace }}/terraform/konnect-teams
 
 jobs:

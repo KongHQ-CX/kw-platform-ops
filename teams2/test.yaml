@@ -1,0 +1,12 @@
+metadata:
+  format_version: 1.0.0
+  type: konnect.teams
+  description: System of record for Konnect teams
+resources:
+- type: konnect.team
+  name: test
+  description: test
+  entitlements:
+  - konnect.api
+  labels:
+    TID: KTEAM_00001

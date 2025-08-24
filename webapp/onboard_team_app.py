@@ -5,7 +5,7 @@ from flask import Flask, render_template_string, request, redirect, url_for, sen
 
 app = Flask(__name__)
 
-TEAMS_DIR_PATH = os.path.join(os.path.dirname(__file__), '../teams2')
+TEAMS_DIR_PATH = os.path.join(os.path.dirname(__file__), '../teams')
 
 
 @app.route('/static/<path:filename>')
@@ -169,16 +169,16 @@ def onboard_team():
         team_filename = re.sub(r'[^a-z0-9-]', '', team_filename)
         team_filename = f"{team_filename}.yaml"
         
-        # Find the next TID by scanning existing files in teams2
+        # Find the next TID by scanning existing files in teams
         import tempfile
         import shutil
         import datetime
         import glob
         
         max_tid = 0
-        # Look through all existing yaml files in teams2 to find the highest TID
-        teams2_pattern = os.path.join(os.path.dirname(TEAMS_DIR_PATH), 'teams2', '*.yaml')
-        for yaml_file in glob.glob(teams2_pattern):
+        # Look through all existing yaml files in teams to find the highest TID
+        teams_pattern = os.path.join(os.path.dirname(TEAMS_DIR_PATH), 'teams', '*.yaml')
+        for yaml_file in glob.glob(teams_pattern):
             try:
                 with open(yaml_file, 'r') as f:
                     data = yaml.safe_load(f)
@@ -220,10 +220,10 @@ def onboard_team():
         branch_name = f"onboard-{team_filename.replace('.yaml', '')}-{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}"
         subprocess.check_call(['git', '-C', temp_dir, 'checkout', '-b', branch_name])
 
-        # Create the new team YAML file in teams2 directory
-        teams2_dir = os.path.join(temp_dir, 'teams2')
-        os.makedirs(teams2_dir, exist_ok=True)
-        target_yaml = os.path.join(teams2_dir, team_filename)
+        # Create the new team YAML file in teams directory
+        teams_dir = os.path.join(temp_dir, 'teams')
+        os.makedirs(teams_dir, exist_ok=True)
+        target_yaml = os.path.join(teams_dir, team_filename)
         
         with open(target_yaml, 'w') as f:
             yaml.dump(team_data, f, sort_keys=False, default_flow_style=False)

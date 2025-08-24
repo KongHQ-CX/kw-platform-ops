@@ -4,6 +4,12 @@ metadata:
   description: Teams onboarded to the Konnect APIM platform
 resources:
 - type: konnect.team
+  name: test
+  description: test
+  labels:
+    TID: KTEAM_00001
+  entitlements:
+  - konnect.control_plane
   name: test2
   description: test2
   labels:

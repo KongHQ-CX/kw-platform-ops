@@ -79,3 +79,7 @@ resource "aws_s3_bucket" "my_bucket" {
     Name        = "kw.konnect.team.resources.${local.sanitized_team_names[each.value.name]}"
   }
 }
+
+output "config" {
+  value = local.config
+}

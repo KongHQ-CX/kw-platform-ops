@@ -81,6 +81,6 @@ resource "aws_s3_bucket" "my_bucket" {
   }
 }
 
-output "config" {
-  value = local.config
+output "teams" {
+  value = local.teams
 }

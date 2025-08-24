@@ -1,0 +1,9 @@
+# teams/flight-operations.yaml
+name: flight-operations
+description: Flight Operations Team
+email: flight-operations@kongair.com
+entitlements:
+  - konnect.control_plane
+  - konnect.api
+labels:
+  TID: KTEAM_00001

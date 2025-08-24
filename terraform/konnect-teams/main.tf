@@ -7,14 +7,11 @@ terraform {
 }
 
 locals {
-  config_files = fileset("${var.config_file}", "*.yaml")
+  config_files = fileset("${var.resources_path}", "*.yaml")
   teams               = [
     for file in local.config_files : 
-    yamldecode(file("${var.config_file}/${file}"))
+    yamldecode(file("${var.resources_path}/${file}"))
   ]
-
-  # metadata             = lookup(local.config, "metadata", {})
-  # teams                = [for team in config : team if lookup(team, "offboarded", false) != true]
   sanitized_team_names = { for team in local.teams : team.name => replace(lower(team.name), " ", "-") }
 }
 

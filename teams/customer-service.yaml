@@ -1,0 +1,8 @@
+# teams/customer-service.yaml
+name: customer-service
+description: Customer Service Team
+email: customer-service@kongair.com
+entitlements:
+  - konnect.control_plane
+labels:
+  TID: KTEAM_00002

@@ -5,8 +5,7 @@ variable "konnect_region" {
   type        = string
 }
 
-variable "config_file" {
-  description = "Path to the configuration file"
+variable "resources_path" {
+  description = "Path to the resources directory"
   type        = string
-  default     = "./files/empty.yaml" # Default to an empty file if not provided
 }

@@ -11,7 +11,7 @@ on:
       - "teams/*.yaml"
 
 env:
-  TF_VAR_config_file: ${{ github.workspace }}/teams
+  TF_VAR_resources_path: ${{ github.workspace }}/teams
   TERRAFORM_DIR: ${{ github.workspace }}/terraform/konnect-teams
 
 jobs:
@@ -50,59 +50,52 @@ jobs:
           aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
           aws-region: ${{ vars.AWS_REGION }}
 
-      # - name: Validate config
-      #   run: |
-      #     # Find all YAML files in the config directory
-      #     yaml_files=$(find ${{ env.TF_VAR_config_file }} -name "*.yaml" -o -name "*.yml")
+      - name: Validate config
+        run: |
+          # Find all YAML files in the config directory
+          yaml_files=$(find ${{ env.TF_VAR_resources_path }} -name "*.yaml" -o -name "*.yml")
           
-      #     if [ -z "$yaml_files" ]; then
-      #       echo "No YAML files found in ${{ env.TF_VAR_config_file }}"
-      #       exit 1
-      #     fi
+          if [ -z "$yaml_files" ]; then
+            echo "No YAML files found in ${{ env.TF_VAR_resources_path }}"
+            exit 1
+          fi
           
-      #     echo "Found YAML files to validate:"
-      #     echo "$yaml_files"
-      #     echo ""
+          echo "Found YAML files to validate:"
+          echo "$yaml_files"
+          echo ""
           
-      #     # Validate each YAML file
-      #     for config_file in $yaml_files; do
-      #       echo "Validating $config_file..."
-      #       config=$( cat "$config_file" | yq -r . )
+          # Validate each YAML file
+          for config_file in $yaml_files; do
+            echo "Validating $config_file..."
+            config=$( cat "$config_file" | yq -r . )
 
-      #       # Validate metadata.type. Should be 'konnect.teams'
-      #       metadata_type=$(echo "$config" | yq -r '.metadata.type')
-      #       if [ "$metadata_type" != "konnect.teams" ]; then
-      #         echo "Invalid metadata.type in $config_file: $metadata_type. Expected 'konnect.teams'"
-      #         exit 1
-      #       fi
+            # Every resource must have a name and the name must be lowercase alphanumeric with hyphens
+            invalid_names=$(echo "$config" | yq -r '.' | select(.name == null or (.name | test("[^a-z0-9-]"))) | .name)
+            if [ -n "$invalid_names" ]; then
+              echo "Invalid resource names found in $config_file: $invalid_names. Names must be lowercase alphanumeric with hyphens."
+              exit 1
+            fi
 
-      #       # Validate resources is an array.
-      #       resources_type=$(echo "$config" | yq -r '.resources | type')
-      #       if [ "$resources_type" != "!!seq" ]; then
-      #         echo "Invalid resources type in $config_file: $resources_type. Expected '!!seq' (array)"
-      #         exit 1
-      #       fi
+            # Every resource must have an "entitlements" property that is a list
+            invalid_entitlements=$(echo "$config" | yq -r '.' | select(.entitlements == null or (.entitlements | type != "!!seq")) | .name)
+            if [ -n "$invalid_entitlements" ]; then
+              echo "Invalid entitlements found in $config_file: $invalid_entitlements. Entitlements must be a list."
+              exit 1
+            fi
 
-      #       # Every resource must have a name and the name must be lowercase alphanumeric with hyphens
-      #       invalid_names=$(echo "$config" | yq -r '.resources[] | select(.name == null or (.name | test("[^a-z0-9-]"))) | .name')
-      #       if [ -n "$invalid_names" ]; then
-      #         echo "Invalid resource names found in $config_file: $invalid_names. Names must be lowercase alphanumeric with hyphens."
-      #         exit 1
-      #       fi
+            # Entitlements should be one of konnect.control_plane or konnect.api
+            invalid_entitlements=$(echo "$config" | yq -r '.' | select(.entitlements | map(test("^(konnect.control_plane|konnect.api)$")) | any) | not | .name)
+            if [ -n "$invalid_entitlements" ]; then
+              echo "Invalid entitlements found in $config_file: $invalid_entitlements. Entitlements must be one of konnect.control_plane or konnect.api."
+              exit 1
+            fi
 
-      #       # Validate each resource type. Should be 'konnect.team'.
-      #       invalid_resources=$(echo "$config" | yq '[.resources[] | select(.type != "konnect.team")]')
-      #       if [ "$(echo "$invalid_resources" | yq 'length')" -ne 0 ]; then
-      #         echo "Invalid resource types found in $config_file: $(echo "$invalid_resources" | yq -c '.[]')"
-      #         exit 1
-      #       fi
-            
-      #       echo "✓ $config_file validation passed"
-      #     done
+            echo "✓ $config_file validation passed"
+          done
 
-      #     echo ""
-      #     echo "All config files validation passed"
-      #   shell: bash
+          echo ""
+          echo "All config files validation passed"
+        shell: bash
 
       - name: Ensure TF state S3 bucket exists
         shell: bash

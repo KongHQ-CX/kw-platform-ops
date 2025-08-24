@@ -1,8 +1,0 @@
-type: konnect.team
-name: flight-operations
-description: Flight Operations team
-entitlements:
-  - 'konnect.control_plane'
-  - 'konnect.api'
-labels:
-  TID: KTEAM_00001

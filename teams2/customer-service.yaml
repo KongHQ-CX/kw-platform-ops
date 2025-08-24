@@ -1,7 +1,0 @@
-type: konnect.team
-name: customer-service
-description: Customer Service team
-entitlements:
-  - 'konnect.control_plane'
-labels:
-  TID: KTEAM_00002

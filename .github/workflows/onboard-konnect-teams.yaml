@@ -5,11 +5,13 @@ on:
   push:
     branches:
       - main
+      - feat/per-team-sor
     paths:
-      - "teams/resources.yaml"
+      # - "teams/resources.yaml"
+      - "teams2/**"
 
 env:
-  TF_VAR_config_file: ${{ github.workspace }}/teams/resources.yaml
+  TF_VAR_config_file: ${{ github.workspace }}/teams2
   TERRAFORM_DIR: ${{ github.workspace }}/terraform/konnect-teams
 
 jobs:

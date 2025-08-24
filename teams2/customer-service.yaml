@@ -1,0 +1,14 @@
+metadata:
+  format_version: "1.0.0"
+  type: konnect.teams
+  description: System of record for Konnect teams
+
+resources:
+
+  - type: konnect.team
+    name: customer-service
+    description: Customer Service team
+    entitlements:
+      - 'konnect.control_plane'
+    labels:
+      TID: KTEAM_00002

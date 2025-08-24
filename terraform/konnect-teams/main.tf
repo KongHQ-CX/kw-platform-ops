@@ -10,7 +10,7 @@ locals {
   config_files = fileset("${var.config_file}", "*.yaml")
   teams               = [
     for file in local.config_files : 
-    yamldecode(file(file))
+    yamldecode(file("${var.config_file}/${file}"))
   ]
 
   # metadata             = lookup(local.config, "metadata", {})

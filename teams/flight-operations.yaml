@@ -1,6 +1,6 @@
 type: konnect.team
 name: flight-operations
-description: Flight Operations team
+description: Flight ops teams
 entitlements:
 - konnect.control_plane
 - konnect.api

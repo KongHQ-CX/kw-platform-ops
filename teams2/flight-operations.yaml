@@ -1,3 +1,4 @@
+type: konnect.team
 name: flight-operations
 description: Flight Operations team
 entitlements:

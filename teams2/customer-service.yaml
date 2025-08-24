@@ -1,3 +1,4 @@
+type: konnect.team
 name: customer-service
 description: Customer Service team
 entitlements:

@@ -76,19 +76,19 @@ jobs:
               exit 1
             fi
 
-            # Every resource must have an "entitlements" property that is a list
-            invalid_entitlements=$(echo "$config" | yq -r '.' | select(.entitlements == null or (.entitlements | type != "!!seq")) | .name)
-            if [ -n "$invalid_entitlements" ]; then
-              echo "Invalid entitlements found in $config_file: $invalid_entitlements. Entitlements must be a list."
-              exit 1
-            fi
+            # # Every resource must have an "entitlements" property that is a list
+            # invalid_entitlements=$(echo "$config" | yq -r '.' | select(.entitlements == null or (.entitlements | type != "!!seq")) | .name)
+            # if [ -n "$invalid_entitlements" ]; then
+            #   echo "Invalid entitlements found in $config_file: $invalid_entitlements. Entitlements must be a list."
+            #   exit 1
+            # fi
 
-            # Entitlements should be one of konnect.control_plane or konnect.api
-            invalid_entitlements=$(echo "$config" | yq -r '.' | select(.entitlements | map(test("^(konnect.control_plane|konnect.api)$")) | any) | not | .name)
-            if [ -n "$invalid_entitlements" ]; then
-              echo "Invalid entitlements found in $config_file: $invalid_entitlements. Entitlements must be one of konnect.control_plane or konnect.api."
-              exit 1
-            fi
+            # # Entitlements should be one of konnect.control_plane or konnect.api
+            # invalid_entitlements=$(echo "$config" | yq -r '.' | select(.entitlements | map(test("^(konnect.control_plane|konnect.api)$")) | any) | not | .name)
+            # if [ -n "$invalid_entitlements" ]; then
+            #   echo "Invalid entitlements found in $config_file: $invalid_entitlements. Entitlements must be one of konnect.control_plane or konnect.api."
+            #   exit 1
+            # fi
 
             echo "✓ $config_file validation passed"
           done

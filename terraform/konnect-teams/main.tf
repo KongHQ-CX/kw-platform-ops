@@ -7,9 +7,14 @@ terraform {
 }
 
 locals {
-  config               = yamldecode(file(var.config_file))
-  metadata             = lookup(local.config, "metadata", {})
-  teams                = [for team in lookup(local.config, "resources", []) : team if lookup(team, "offboarded", false) != true]
+  config_files = fileset("${var.config_file}", "*.yaml")
+  teams               = [
+    for file in local.config_files : 
+    yamldecode(file("${var.config_file}/${file}"))
+  ]
+
+  # metadata             = lookup(local.config, "metadata", {})
+  # teams                = [for team in config : team if lookup(team, "offboarded", false) != true]
   sanitized_team_names = { for team in local.teams : team.name => replace(lower(team.name), " ", "-") }
 }
 
@@ -74,4 +79,8 @@ resource "aws_s3_bucket" "my_bucket" {
   tags = {
     Name        = "kw.konnect.team.resources.${local.sanitized_team_names[each.value.name]}"
   }
+}
+
+output "teams" {
+  value = local.teams
 }

@@ -1,11 +1,10 @@
 import os
 import yaml
-import glob
 from flask import Flask, render_template_string, request, redirect, url_for, send_from_directory
 
 app = Flask(__name__)
 
-TEAMS2_DIR_PATH = os.path.join(os.path.dirname(__file__), '../teams2')
+TEAMS_YAML_PATH = os.path.join(os.path.dirname(__file__), '../teams/resources.yaml')
 
 
 @app.route('/static/<path:filename>')
@@ -161,54 +160,38 @@ def onboard_team():
         description = request.form['description']
         email = request.form['email']
         entitlements = request.form.getlist('entitlements')
-        
-        # Generate filename from team name (lowercase with hyphens)
-        team_filename = name.lower().replace(' ', '-').replace('_', '-')
-        # Remove any special characters except hyphens and alphanumeric
+        # Load existing YAML
+        with open(TEAMS_YAML_PATH, 'r') as f:
+            data = yaml.safe_load(f)
+        # Find the next TID
         import re
-        team_filename = re.sub(r'[^a-z0-9-]', '', team_filename)
-        team_filename = f"{team_filename}.yaml"
-        
-        # Find the next TID by scanning existing files in teams2
         import tempfile
         import shutil
         import datetime
-        import glob
-        
         max_tid = 0
-        # Look through all existing yaml files in teams2 to find the highest TID
-        teams2_pattern = os.path.join(os.path.dirname(TEAMS2_DIR_PATH), 'teams2', '*.yaml')
-        for yaml_file in glob.glob(teams2_pattern):
-            try:
-                with open(yaml_file, 'r') as f:
-                    data = yaml.safe_load(f)
-                    # Handle the simplified structure - each file is a single team
-                    if isinstance(data, dict):
-                        labels = data.get('labels')
-                        if isinstance(labels, dict):
-                            tid = labels.get('TID')
-                            if tid:
-                                m = re.match(r"KTEAM_(\d{5})", str(tid))
-                                if m:
-                                    num = int(m.group(1))
-                                    if num > max_tid:
-                                        max_tid = num
-            except:
-                # Skip files that can't be parsed
-                continue
-        
+        for team in data.get('resources', []):
+            labels = team.get('labels')
+            if isinstance(labels, dict):
+                tid = labels.get('TID')
+                if tid:
+                    m = re.match(r"KTEAM_(\d{5})", str(tid))
+                    if m:
+                        num = int(m.group(1))
+                        if num > max_tid:
+                            max_tid = num
         next_tid = f"KTEAM_{max_tid+1:05d}"
 
-        # Create the team YAML structure
-        team_data = {
+        # Add new team with TID label and entitlements
+        new_team = {
             'type': 'konnect.team',
-            'name': team_filename.replace('.yaml', ''),  # Use the sanitized name
+            'name': name,
             'description': description,
-            'entitlements': entitlements,
             'labels': {
                 'TID': next_tid
-            }
+            },
+            'entitlements': entitlements
         }
+        data['resources'].append(new_team)
 
         # --- GIT/PR LOGIC START ---
         import subprocess
@@ -217,19 +200,16 @@ def onboard_team():
         subprocess.check_call(['git', 'clone', repo_url, temp_dir])
 
         # Create a new branch
-        branch_name = f"onboard-{team_filename.replace('.yaml', '')}-{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}"
+        branch_name = f"onboard-{name.lower().replace(' ', '-')}-{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}"
         subprocess.check_call(['git', '-C', temp_dir, 'checkout', '-b', branch_name])
 
-        # Create the new team YAML file in teams2 directory
-        teams2_dir = os.path.join(temp_dir, 'teams2')
-        os.makedirs(teams2_dir, exist_ok=True)
-        target_yaml = os.path.join(teams2_dir, team_filename)
-        
+        # Overwrite the teams/resources.yaml file
+        target_yaml = os.path.join(temp_dir, 'teams', 'resources.yaml')
         with open(target_yaml, 'w') as f:
-            yaml.dump(team_data, f, sort_keys=False, default_flow_style=False)
+            yaml.dump(data, f, sort_keys=False)
 
         # Commit and push
-        subprocess.check_call(['git', '-C', temp_dir, 'add', f'teams2/{team_filename}'])
+        subprocess.check_call(['git', '-C', temp_dir, 'add', 'teams/resources.yaml'])
         subprocess.check_call(['git', '-C', temp_dir, 'commit', '-m', f"Onboard team: {name}"])
         subprocess.check_call(['git', '-C', temp_dir, 'push', 'origin', branch_name])
 

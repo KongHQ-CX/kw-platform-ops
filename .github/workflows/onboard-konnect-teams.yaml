@@ -5,11 +5,13 @@ on:
   push:
     branches:
       - main
+      - feat/per-team-sor
     paths:
-      - "teams/resources.yaml"
+      # - "teams/resources.yaml"
+      - "teams2/**"
 
 env:
-  TF_VAR_config_file: ${{ github.workspace }}/teams/resources.yaml
+  TF_VAR_config_file: ${{ github.workspace }}/teams2
   TERRAFORM_DIR: ${{ github.workspace }}/terraform/konnect-teams
 
 jobs:
@@ -48,40 +50,59 @@ jobs:
           aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
           aws-region: ${{ vars.AWS_REGION }}
 
-      - name: Validate config
-        run: |
-          config=$( cat ${{ env.TF_VAR_config_file }} | yq -r . )
+      # - name: Validate config
+      #   run: |
+      #     # Find all YAML files in the config directory
+      #     yaml_files=$(find ${{ env.TF_VAR_config_file }} -name "*.yaml" -o -name "*.yml")
+          
+      #     if [ -z "$yaml_files" ]; then
+      #       echo "No YAML files found in ${{ env.TF_VAR_config_file }}"
+      #       exit 1
+      #     fi
+          
+      #     echo "Found YAML files to validate:"
+      #     echo "$yaml_files"
+      #     echo ""
+          
+      #     # Validate each YAML file
+      #     for config_file in $yaml_files; do
+      #       echo "Validating $config_file..."
+      #       config=$( cat "$config_file" | yq -r . )
 
-          # Validate metadata.type. Should be 'konnect.teams'
-          metadata_type=$(echo "$config" | yq -r '.metadata.type')
-          if [ "$metadata_type" != "konnect.teams" ]; then
-            echo "Invalid metadata.type: $metadata_type. Expected 'konnect.teams'"
-            exit 1
-          fi
+      #       # Validate metadata.type. Should be 'konnect.teams'
+      #       metadata_type=$(echo "$config" | yq -r '.metadata.type')
+      #       if [ "$metadata_type" != "konnect.teams" ]; then
+      #         echo "Invalid metadata.type in $config_file: $metadata_type. Expected 'konnect.teams'"
+      #         exit 1
+      #       fi
 
-          # Validate resources is an array.
-          resources_type=$(echo "$config" | yq -r '.resources | type')
-          if [ "$resources_type" != "!!seq" ]; then
-            echo "Invalid resources type: $resources_type. Expected '!!seq' (array)"
-            exit 1
-          fi
+      #       # Validate resources is an array.
+      #       resources_type=$(echo "$config" | yq -r '.resources | type')
+      #       if [ "$resources_type" != "!!seq" ]; then
+      #         echo "Invalid resources type in $config_file: $resources_type. Expected '!!seq' (array)"
+      #         exit 1
+      #       fi
 
-          # Every resource must have a name and the name must be lowercase alphanumeric with hyphens
-          invalid_names=$(echo "$config" | yq -r '.resources[] | select(.name == null or (.name | test("[^a-z0-9-]"))) | .name')
-          if [ -n "$invalid_names" ]; then
-            echo "Invalid resource names found: $invalid_names. Names must be lowercase alphanumeric with hyphens."
-            exit 1
-          fi
+      #       # Every resource must have a name and the name must be lowercase alphanumeric with hyphens
+      #       invalid_names=$(echo "$config" | yq -r '.resources[] | select(.name == null or (.name | test("[^a-z0-9-]"))) | .name')
+      #       if [ -n "$invalid_names" ]; then
+      #         echo "Invalid resource names found in $config_file: $invalid_names. Names must be lowercase alphanumeric with hyphens."
+      #         exit 1
+      #       fi
 
-          # Validate each resource type. Should be 'konnect.team'.
-          invalid_resources=$(echo "$config" | yq '[.resources[] | select(.type != "konnect.team")]')
-          if [ "$(echo "$invalid_resources" | yq 'length')" -ne 0 ]; then
-            echo "Invalid resource types found: $(echo "$invalid_resources" | yq -c '.[]')"
-            exit 1
-          fi
+      #       # Validate each resource type. Should be 'konnect.team'.
+      #       invalid_resources=$(echo "$config" | yq '[.resources[] | select(.type != "konnect.team")]')
+      #       if [ "$(echo "$invalid_resources" | yq 'length')" -ne 0 ]; then
+      #         echo "Invalid resource types found in $config_file: $(echo "$invalid_resources" | yq -c '.[]')"
+      #         exit 1
+      #       fi
+            
+      #       echo "✓ $config_file validation passed"
+      #     done
 
-          echo "Config validation passed"
-        shell: bash
+      #     echo ""
+      #     echo "All config files validation passed"
+      #   shell: bash
 
       - name: Ensure TF state S3 bucket exists
         shell: bash

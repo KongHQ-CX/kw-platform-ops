@@ -1,0 +1,7 @@
+type: konnect.team
+name: test
+description: test
+entitlements:
+- konnect.api
+labels:
+  TID: KTEAM_00002

@@ -8,10 +8,10 @@ terraform {
 
 locals {
   config_files = fileset("${var.config_file}", "*.yaml")
-  config               = merge([
+  config               = [
     for file in local.config_files : 
     yamldecode(file("${var.config_file}/${file}"))
-  ]...)
+  ]
 
   # metadata             = lookup(local.config, "metadata", {})
   teams                = [for team in lookup(local.config, "resources", []) : team if lookup(team, "offboarded", false) != true]

@@ -67,11 +67,16 @@ jobs:
           # Validate each YAML file
           for config_file in $yaml_files; do
             echo "Validating $config_file..."
-            config=$( cat "$config_file" | yq -r . )
+            
+            # Check if file is valid YAML
+            if ! yq eval '.' "$config_file" > /dev/null 2>&1; then
+              echo "Invalid YAML syntax in $config_file"
+              exit 1
+            fi
 
             # Every resource must have a name and the name must be lowercase alphanumeric with hyphens
-            resource_name=$(echo "$config" | yq -r '.name // empty')
-            if [ -z "$resource_name" ]; then
+            resource_name=$(yq eval '.name' "$config_file")
+            if [ "$resource_name" = "null" ] || [ -z "$resource_name" ]; then
               echo "Missing name in $config_file"
               exit 1
             fi
@@ -82,18 +87,20 @@ jobs:
             fi
 
             # Every resource must have an "entitlements" property that is a list
-            entitlements_type=$(echo "$config" | yq -r '.entitlements | type // empty')
-            if [ "$entitlements_type" != "array" ]; then
+            entitlements_check=$(yq eval '.entitlements | type' "$config_file")
+            if [ "$entitlements_check" != "!!seq" ]; then
               echo "Invalid entitlements in $config_file. Entitlements must be a list."
               exit 1
             fi
 
             # Entitlements should be one of konnect.control_plane or konnect.api
-            invalid_entitlements=$(echo "$config" | yq -r '.entitlements[]' | grep -v -E '^(konnect\.control_plane|konnect\.api)$' || true)
-            if [ -n "$invalid_entitlements" ]; then
-              echo "Invalid entitlements found in $config_file: $invalid_entitlements. Entitlements must be one of konnect.control_plane or konnect.api."
-              exit 1
-            fi
+            entitlements_list=$(yq eval '.entitlements[]' "$config_file")
+            for entitlement in $entitlements_list; do
+              if [ "$entitlement" != "konnect.control_plane" ] && [ "$entitlement" != "konnect.api" ]; then
+                echo "Invalid entitlement found in $config_file: $entitlement. Entitlements must be one of konnect.control_plane or konnect.api."
+                exit 1
+              fi
+            done
 
             echo "✓ $config_file validation passed"
           done

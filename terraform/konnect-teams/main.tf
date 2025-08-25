@@ -35,7 +35,7 @@ resource "konnect_team" "this" {
 # STEP 2: CREATE THE KONNECT SYSTEM ACCOUNTS FOR EACH TEAM
 ################################################################################
 module "system-account" {
-  for_each = { for team in konnect_team.this : team.id => team }
+  for_each = konnect_team.this
 
   source = "./modules/system-account"
 
@@ -55,7 +55,7 @@ module "system-account" {
 # STEP 4: CREATE THE VAULT INTEGRATIONS FOR EACH TEAM AND STORE THE SYSTEM ACCOUNT TOKENS
 #########################################################################################
 module "vault" {
-  for_each = { for team in konnect_team.this : team.id => team }
+  for_each = konnect_team.this
 
   source = "./modules/vault"
 
@@ -70,7 +70,7 @@ module "vault" {
 
 # Create S3 bucket
 resource "aws_s3_bucket" "my_bucket" {
-  for_each = { for team in konnect_team.this : team.id => team }
+  for_each = konnect_team.this
   bucket = "kw.konnect.team.resources.${local.sanitized_team_names[each.value.name]}"
 
   tags = {

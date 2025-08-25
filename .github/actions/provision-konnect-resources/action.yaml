@@ -1,8 +1,8 @@
 name: 'Konnect Resources'
 description: 'Provision or destroy Konnect resources'
 inputs:
-  config:
-    description: 'Path to the provisioning config file'
+  konnect-resources:
+    description: 'Path to the Konnect resources file'
     required: true
   action:
     description: 'Action to perform'
@@ -76,7 +76,7 @@ runs:
         echo "TF_VAR_konnect_access_token=${{ inputs.konnect-token }}" >> $GITHUB_ENV
 
         # Set other Terraform variables
-        echo "TF_VAR_config_file=${{ inputs.config }}" >> $GITHUB_ENV
+        echo "TF_VAR_konnect_resources=${{ inputs.konnect-resources }}" >> $GITHUB_ENV
         echo "TF_VAR_gh_workspace_path=${{ github.workspace }}" >> $GITHUB_ENV
         echo "TF_VAR_team_name=${{ inputs.konnect-team-name }}" >> $GITHUB_ENV
 

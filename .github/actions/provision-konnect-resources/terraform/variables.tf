@@ -21,8 +21,8 @@ variable "konnect_region" {
   type        = string
 }
 
-variable "config_file" {
-  description = "Configuration file path"
+variable "konnect_resources" {
+  description = "Konnect resources file path"
   type        = string
   default     = ""
 }

@@ -14,7 +14,7 @@ terraform {
 }
 
 locals {
-  config                       = yamldecode(file(var.config_file))
+  config                       = yamldecode(file(var.konnect_resources))
   metadata                     = lookup(local.config, "metadata", {})
   resources                    = lookup(local.config, "resources", [])
   control_planes               = [for resource in local.resources : resource if resource.type == "konnect.control_plane"]

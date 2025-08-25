@@ -22,7 +22,10 @@ locals {
 ################################################################################
 
 resource "konnect_team" "this" {
-  for_each = { for team in local.teams : team.name => team }
+  for_each = { 
+    for idx, team in local.teams : 
+    basename(local.config_files[idx]) => team 
+  }
 
   description = lookup(each.value, "description", null)
   labels = merge(lookup(each.value, "labels", {
@@ -36,7 +39,7 @@ resource "konnect_team" "this" {
 # STEP 2: CREATE THE KONNECT SYSTEM ACCOUNTS FOR EACH TEAM
 ################################################################################
 module "system-account" {
-  for_each = { for team in konnect_team.this : team.name => team }
+  for_each = { for team in konnect_team.this : team.id => team }
 
   source = "./modules/system-account"
 
@@ -56,7 +59,7 @@ module "system-account" {
 # STEP 4: CREATE THE VAULT INTEGRATIONS FOR EACH TEAM AND STORE THE SYSTEM ACCOUNT TOKENS
 #########################################################################################
 module "vault" {
-  for_each = { for team in konnect_team.this : team.name => team }
+  for_each = { for team in konnect_team.this : team.id => team }
 
   source = "./modules/vault"
 
@@ -71,8 +74,8 @@ module "vault" {
 
 # Create S3 bucket
 resource "aws_s3_bucket" "my_bucket" {
-  for_each = { for team in konnect_team.this : team.name => team }
-  bucket   = "kw.konnect.team.resources.${local.sanitized_team_names[each.value.name]}"
+  for_each = { for team in konnect_team.this : team.id => team }
+  bucket = "kw.konnect.team.resources.${local.sanitized_team_names[each.value.name]}"
 
   tags = {
     Name = "kw.konnect.team.resources.${local.sanitized_team_names[each.value.name]}"

@@ -21,7 +21,7 @@ locals {
 ################################################################################
 
 resource "konnect_team" "this" {
-  for_each = { for team in local.teams : team.id => team }
+  for_each = { for team in local.teams : team.name => team }
 
   description = lookup(each.value, "description", null)
   labels = merge(lookup(each.value, "labels", {

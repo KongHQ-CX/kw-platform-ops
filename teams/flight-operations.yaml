@@ -1,6 +1,6 @@
 type: konnect.team
 name: flight-operations
-description: test
+description: test2
 entitlements:
 - konnect.control_plane
 - konnect.api

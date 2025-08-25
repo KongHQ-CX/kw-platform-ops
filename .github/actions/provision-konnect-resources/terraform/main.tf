@@ -18,22 +18,7 @@ locals {
   metadata                     = lookup(local.config, "metadata", {})
   resources                    = lookup(local.config, "resources", [])
   control_planes               = [for resource in local.resources : resource if resource.type == "konnect.control_plane"]
-  api_products                 = [for resource in local.resources : resource if resource.type == "konnect.api_product"]
   apis                         = [for resource in local.resources : resource if resource.type == "konnect.api"]
-  api_documents                = [for resource in local.resources : resource if resource.type == "konnect.api_document"]
-  api_specifications           = [for resource in local.resources : resource if resource.type == "konnect.api_specification"]
-  api_implementations          = [for resource in local.resources : resource if resource.type == "konnect.api_implementation"]
-  api_publications             = [for resource in local.resources : resource if resource.type == "konnect.api_publication"]
-  cloud_gateway_configurations = [for resource in local.resources : resource if resource.type == "konnect.cloud_gateway_configuration"]
-  cloud_gateway_networks       = [for resource in local.resources : resource if resource.type == "konnect.cloud_gateway_network"]
-  application_auth_strategys   = [for resource in local.resources : resource if resource.type == "konnect.application_auth_strategy"]
-  developer_portals            = [for resource in local.resources : resource if resource.type == "konnect.developer_portal"]
-  portal_auths                 = [for resource in local.resources : resource if resource.type == "konnect.portal_auth"]
-  portal_custom_domains        = [for resource in local.resources : resource if resource.type == "konnect.portal_custom_domain"]
-  portal_teams                 = [for resource in local.resources : resource if resource.type == "konnect.portal_team"]
-  portal_customizations        = [for resource in local.resources : resource if resource.type == "konnect.portal_customization"]
-  portal_pages                 = [for resource in local.resources : resource if resource.type == "konnect.portal_page"]
-  portal_snippets              = [for resource in local.resources : resource if resource.type == "konnect.portal_snippet"]
   days_to_hours                = 365 * 24 // 1 year
   expiration_date              = timeadd(formatdate("YYYY-MM-DD'T'HH:mm:ssZ", timestamp()), "${local.days_to_hours}h")
   short_names = {

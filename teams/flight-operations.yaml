@@ -1,7 +1,0 @@
-type: konnect.team
-name: flight-operations
-description: test
-entitlements:
-- konnect.control_plane
-labels:
-  TID: KTEAM_00001

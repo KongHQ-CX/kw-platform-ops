@@ -3,12 +3,6 @@ variable "name" {
   type        = string
 }
 
-variable "deprecated" {
-  description = "Marks this API as deprecated"
-  type        = bool
-  default     = false
-}
-
 variable "description" {
   description = "A description of your API. Will be visible on your live Portal"
   type        = string
@@ -34,7 +28,7 @@ variable "spec_content" {
 }
 
 variable "api_version" {
-  description = "An optional version for your API. Leave this empty if your API is unversioned"
+  description = "Alias of version to avoid conflicts with module meta-arg names in callers"
   type        = string
   default     = null
 }

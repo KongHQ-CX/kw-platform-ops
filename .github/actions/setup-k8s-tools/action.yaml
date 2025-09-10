@@ -1,0 +1,32 @@
+name: "Setup k8s tools"
+description: "Install kubectl and helm on the runner with pinned versions"
+
+inputs:
+  kubectl-version:
+    description: "kubectl version"
+    required: false
+    default: "v1.27.16"
+  helm-version:
+    description: "helm version"
+    required: false
+    default: "v3.12.3"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Setup kubectl
+      uses: azure/setup-kubectl@v4
+      with:
+        version: ${{ inputs.kubectl-version }}
+
+    - name: Setup helm
+      uses: azure/setup-helm@v4
+      with:
+        version: ${{ inputs.helm-version }}
+
+    - name: Verify tools
+      shell: bash
+      run: |
+        set -euo pipefail
+        kubectl version --client --output=yaml || kubectl version --client
+        helm version

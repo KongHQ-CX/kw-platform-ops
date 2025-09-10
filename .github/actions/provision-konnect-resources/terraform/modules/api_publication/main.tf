@@ -1,13 +1,13 @@
 terraform {
   required_providers {
-    konnect-beta = {
-      source = "kong/konnect-beta"
+    konnect = {
+      source  = "kong/konnect"
+      version = "3.1.0"
     }
   }
 }
 
 resource "konnect_api_publication" "this" {
-  provider = konnect-beta
 
   api_id    = var.api_id
   portal_id = var.portal_id

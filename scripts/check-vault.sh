@@ -6,10 +6,12 @@
 # The script will retry checking the availability of Vault until it becomes available or the maximum number of retries is reached.
 
 if [[ -z "$VAULT_ADDR" ]]; then
-    VAULT_ADDR="http://localhost:8300"
+    VAULT_ADDR="https://vault.kong-cx.com"
 fi
 MAX_RETRIES=10
 RETRY_INTERVAL=5  # in seconds
+# echo the value of VAULT_ADDR
+echo "VAULT_ADDR is set to: $VAULT_ADDR"
 
 check_vault_availability() {
     local response=$(curl -s -o /dev/null -w "%{http_code}" "$VAULT_ADDR/v1/sys/health")

@@ -1,0 +1,39 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: kong-config-exporter
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: Helm
+spec:
+  schedule: {{ .Values.schedule | quote }}
+  jobTemplate:
+    spec:
+      backoffLimit: {{ .Values.backoffLimit }}
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: kong-config-exporter
+            app.kubernetes.io/instance: {{ .Release.Name }}
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: exporter
+              image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+              imagePullPolicy: {{ .Values.image.pullPolicy }}
+              env:
+                - name: S3_BUCKET
+                  value: "{{ .Values.s3.bucketName }}"
+                - name: S3_PREFIX
+                  value: "{{ .Values.s3.prefix }}"
+                - name: KONNECT_CP_ENDPOINT
+                  value: "{{ .Values.konnect.cpEndpoint }}"
+                - name: KONNECT_TELEMETRY_ENDPOINT
+                  value: "{{ .Values.konnect.telemetryEndpoint }}"
+              command: ["/bin/sh", "-c"]
+              args:
+                - >-
+                  echo "[kong-config-exporter] $(date) cp=$KONNECT_CP_ENDPOINT telemetry=$KONNECT_TELEMETRY_ENDPOINT s3=$S3_BUCKET/$S3_PREFIX";
+                  exit 0;

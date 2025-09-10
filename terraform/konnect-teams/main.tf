@@ -9,20 +9,11 @@ terraform {
 
 locals {
   config_files = fileset("${var.resources_path}", "*.yaml")
-  
-  # Create teams with filename as stable key
-  teams_by_file = {
-    for file in local.config_files : 
-    basename(file, ".yaml") => yamldecode(file("${var.resources_path}/${file}"))
-  }
-  
-  # Keep your existing teams list for compatibility
-  teams = values(local.teams_by_file)
-  
-  sanitized_team_names = { 
-    for key, team in local.teams_by_file : 
-    key => replace(lower(team.name), " ", "-") 
-  }
+  teams = [
+    for file in local.config_files :
+    yamldecode(file("${var.resources_path}/${file}"))
+  ]
+  sanitized_team_names = { for team in local.teams : team.name => replace(lower(team.name), " ", "-") }
 }
 
 
@@ -80,11 +71,11 @@ module "vault" {
 
 # Create S3 bucket
 resource "aws_s3_bucket" "my_bucket" {
-  for_each = konnect_team.this
-  bucket = "kw.konnect.team.resources.${local.sanitized_team_names[each.key]}"
+  for_each = { for team in konnect_team.this : team.name => team }
+  bucket   = "kw.konnect.team.resources.${local.sanitized_team_names[each.value.name]}"
 
   tags = {
-    Name = "kw.konnect.team.resources.${local.sanitized_team_names[each.key]}"
+    Name = "kw.konnect.team.resources.${local.sanitized_team_names[each.value.name]}"
   }
 }
 

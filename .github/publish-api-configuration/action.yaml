@@ -1,0 +1,146 @@
+name: Publish API configuration
+description: "Publish API configuration to Kong Konnect"
+
+inputs:
+  openapi_spec:
+    description: "Path to the OpenAPI Specification file"
+    required: true
+  control_plane_name:
+    description: "Kong Konnect control plane name"
+    required: true
+  system_account:
+    description: "The system account to use for authentication with Konnect"
+    required: true
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - uses: kong/setup-deck@v1
+
+    - name: Install extra rulesets for Spectral
+      shell: bash
+      run: |
+        npm install --save -D @stoplight/spectral-owasp-ruleset@^2.0
+
+    - name: Import system account Token from Vault
+      id: import-token
+      uses: hashicorp/vault-action@v2
+      with:
+        url: ${{ env.VAULT_ADDR }}
+        token: ${{ secrets.VAULT_TOKEN }}
+        secrets: |
+          secret/data/system-accounts/${{ inputs.system_account }} token | SYSTEM_ACCOUNT_TOKEN ;
+
+    - name: Set current date as env variable
+      shell: bash
+      run: echo "NOW=$(date +'%Y_%m_%dT%H_%M_%S')" >> $GITHUB_ENV
+
+    - name: Setup decK variables
+      shell: bash
+      run: |
+
+        # Set the API Name
+        api_name=$(yq eval '.info.title' ${{ github.workspace }}/${{ inputs.openapi_spec }} | tr '[:upper:]' '[:lower:]' | tr ' ' '-')
+        echo "DECK_API_NAME=$api_name" >> $GITHUB_ENV
+
+        # Set the Organization/BU
+        organization=$(yq eval '.info.x-business-unit' ${{ github.workspace }}/${{ inputs.openapi_spec }})
+        echo "DECK_ORGANIZATION=$organization" >> $GITHUB_ENV
+
+        # Set the team responsible for the API
+        team=$(yq eval '.info.x-team-name' ${{ github.workspace }}/${{ inputs.openapi_spec }})
+        echo "DECK_CONFIG_OWNER=$team" >> $GITHUB_ENV
+
+        # Set the namespace if available
+        namespace=$(yq eval '.["x-kong-namespace"]' ${{ github.workspace }}/${{ inputs.openapi_spec }})
+        if [ ! -z "$namespace" ]; then
+          echo "DECK_NAMESPACE=$namespace" >> $GITHUB_ENV
+        fi
+
+    - name: Lint OpenAPI Specification
+      uses: stoplightio/spectral-action@latest
+      with:
+        file_glob: '${{ github.workspace }}/${{ inputs.openapi_spec }}'
+        spectral_ruleset: ${{ github.action_path }}/spectral/.spectral.yaml
+
+    - name: Convert OpenAPI Specification to Kong Gateway configuration
+      shell: bash
+      run: cat ${{ github.workspace }}/${{ inputs.openapi_spec }} | deck file openapi2kong > kong.yaml
+
+    - name: Add plugins owned by platform to Kong Gateway configuration
+      shell: bash
+      run: |
+        cat kong.yaml | deck file add-plugins \
+          ${{ github.action_path }}/plugins/openid-connect.yaml \
+          ${{ github.action_path }}/plugins/oas-validation.yaml \
+          ${{ github.action_path }}/plugins/rate-limiting.yaml -o kong.yaml
+      working-directory: ${{ github.workspace }}
+
+    - name: Add namespace to Kong Gateway configuration if required
+      shell: bash
+      if: ${{ env.DECK_NAMESPACE && env.DECK_NAMESPACE != '/' && env.DECK_NAMESPACE != 'null' }}
+      run: cat kong.yaml | deck file namespace --path-prefix=${{ env.DECK_NAMESPACE }} -o kong.yaml
+      working-directory: ${{ github.workspace }}
+
+    - name: Add select_tags patch to Kong Gateway configuration
+      shell: bash
+      run: cat kong.yaml | deck file patch ${{ github.action_path }}/patches/select_tags.yaml -o kong.yaml
+      working-directory: ${{ github.workspace }}
+
+    - name: Output Kong Gateway configuration
+      shell: bash
+      run: cat kong.yaml
+      working-directory: ${{ github.workspace }}
+
+    - name: Validate Generated Kong Gateway configuration
+      shell: bash
+      run: deck file validate kong.yaml
+      working-directory: ${{ github.workspace }}
+
+    - name: Get a backup of the previous Kong Gateway configuration
+      shell: bash
+      run: |
+        deck gateway dump \
+          --konnect-addr="${{ env.KONNECT_SERVER_URL }}" \
+          --konnect-token="${{ steps.import-token.outputs.SYSTEM_ACCOUNT_TOKEN }}" \
+          --konnect-control-plane-name="${{ inputs.control_plane_name }}" -o kong_backup_${{ env.NOW }}.yaml
+      working-directory: ${{ github.workspace }}
+
+    - name: Diff Kong Gateway configuration
+      shell: bash
+      run: |
+        deck gateway diff kong.yaml  \
+          --konnect-addr="${{ env.KONNECT_SERVER_URL }}" \
+          --konnect-token="${{ steps.import-token.outputs.SYSTEM_ACCOUNT_TOKEN }}" \
+          --konnect-control-plane-name="${{ inputs.control_plane_name }}" > kong_diff_${{ env.NOW }}.txt
+      working-directory: ${{ github.workspace }}
+
+    - name: Sync Kong Gateway configuration
+      shell: bash
+      run: |
+        deck gateway sync kong.yaml  \
+          --konnect-addr="${{ env.KONNECT_SERVER_URL }}" \
+          --konnect-token="${{ steps.import-token.outputs.SYSTEM_ACCOUNT_TOKEN }}" \
+          --konnect-control-plane-name="${{ inputs.control_plane_name }}"
+      working-directory: ${{ github.workspace }}
+
+    - name: Get a backup of the current Kong Gateway configuration
+      shell: bash
+      run: |
+        deck gateway dump \
+          --konnect-addr="${{ env.KONNECT_SERVER_URL }}" \
+          --konnect-token="${{ steps.import-token.outputs.SYSTEM_ACCOUNT_TOKEN }}" \
+          --konnect-control-plane-name="${{ inputs.control_plane_name }}" -o kong_current_${{ env.NOW }}.yaml
+      working-directory: ${{ github.workspace }}
+
+    - name: Archive artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: artifacts
+        path: |
+          ${{ github.workspace }}/kong_backup_${{ env.NOW }}.yaml
+          ${{ github.workspace }}/kong_current_${{ env.NOW }}.yaml
+          ${{ github.workspace }}/kong_diff_${{ env.NOW }}.txt

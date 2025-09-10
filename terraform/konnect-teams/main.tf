@@ -9,8 +9,8 @@ terraform {
 
 locals {
   config_files = fileset("${var.resources_path}", "*.yaml")
-  teams               = [
-    for file in local.config_files : 
+  teams = [
+    for file in local.config_files :
     yamldecode(file("${var.resources_path}/${file}"))
   ]
   sanitized_team_names = { for team in local.teams : team.name => replace(lower(team.name), " ", "-") }
@@ -71,11 +71,11 @@ module "vault" {
 
 # Create S3 bucket
 resource "aws_s3_bucket" "my_bucket" {
-  for_each = konnect_team.this
-  bucket = "kw.konnect.team.resources.${local.sanitized_team_names[each.value.name]}"
+  for_each = { for team in konnect_team.this : team.name => team }
+  bucket   = "kw.konnect.team.resources.${local.sanitized_team_names[each.value.name]}"
 
   tags = {
-    Name        = "kw.konnect.team.resources.${local.sanitized_team_names[each.value.name]}"
+    Name = "kw.konnect.team.resources.${local.sanitized_team_names[each.value.name]}"
   }
 }
 

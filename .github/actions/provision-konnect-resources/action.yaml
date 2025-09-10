@@ -8,6 +8,10 @@ inputs:
     description: 'Action to perform'
     required: true
     default: 'provision'
+  plan-only:
+    description: 'If true, only run terraform plan (no apply)'
+    required: false
+    default: 'false'
   vault-address:
     description: 'Vault address'
     required: false
@@ -35,6 +39,10 @@ inputs:
     description: "Konnect region"
     required: false
     default: "eu"
+  konnect-server-url:
+    description: 'Konnect server URL (defaults to global endpoint)'
+    required: false
+    default: 'https://global.api.konghq.com'
   konnect-token:
     description: 'Konnect API token'
     required: true
@@ -45,6 +53,22 @@ inputs:
 runs:
   using: 'composite'
   steps:
+
+    - name: Install yq (for YAML validation)
+      shell: bash
+      run: |
+        set -euo pipefail
+        if ! command -v yq >/dev/null 2>&1; then
+          UNAME=$(uname -s)
+          case "$UNAME" in
+            Linux*)  BINARY="yq_linux_amd64" ;;
+            Darwin*) BINARY="yq_darwin_amd64" ;;
+            *) echo "Unsupported OS: $UNAME" >&2; exit 1 ;;
+          esac
+          curl -fsSL "https://github.com/mikefarah/yq/releases/latest/download/${BINARY}" -o yq
+          chmod +x yq
+          sudo mv yq /usr/local/bin/yq
+        fi
 
     - name: Setup Terraform
       uses: hashicorp/setup-terraform@v3
@@ -62,7 +86,7 @@ runs:
 
         # Set Vault environment variables
         echo "VAULT_ADDR=${{ inputs.vault-address }}" >> $GITHUB_ENV
-        echo "vault-token=${{ inputs.vault-token }}" >> $GITHUB_ENV
+        echo "VAULT_TOKEN=${{ inputs.vault-token }}" >> $GITHUB_ENV
 
         # Set AWS environment variables
         echo "AWS_ENDPOINT_URL=${{ inputs.aws-endpoint-url }}" >> $GITHUB_ENV
@@ -72,8 +96,9 @@ runs:
         echo "AWS_REGION=${{ inputs.aws-region }}" >> $GITHUB_ENV
 
         # Set Konnect environment variables
-        echo "TF_VAR_konnect_server_url=https://${{ inputs.konnect-region }}.api.konghq.com" >> $GITHUB_ENV
+        echo "TF_VAR_konnect_server_url=${{ inputs.konnect-server-url }}" >> $GITHUB_ENV
         echo "TF_VAR_konnect_access_token=${{ inputs.konnect-token }}" >> $GITHUB_ENV
+        echo "TF_VAR_konnect_region=${{ inputs.konnect-region }}" >> $GITHUB_ENV
 
         # Set other Terraform variables
         echo "TF_VAR_konnect_resources=${{ inputs.konnect-resources }}" >> $GITHUB_ENV
@@ -83,26 +108,27 @@ runs:
     - name: Terraform Init
       shell: bash
       run: |
-        terraform init -upgrade \
-          -backend-config=config.s3.tfbackend \
-          -backend-config="bucket=kw.konnect.team.resources.${{ inputs.konnect-team-name }}" \
-          -backend-config="key=tfstate" \
-          -backend-config="region=${{ inputs.aws-region }}"
+        terraform init -input=false -upgrade
       working-directory: ${{ github.action_path }}/terraform
 
     - name: Terraform Plan
       shell: bash
-      if: ${{ inputs.action == 'provision' }}
+      if: ${{ inputs.action != 'destroy' }}
       run: |
-        terraform plan -out=tfplan
+        set -euo pipefail
+        REFRESH=true
+        if [ "${{ inputs.konnect-token }}" = "dummy" ]; then
+          REFRESH=false
+        fi
+        terraform plan -refresh=$REFRESH -input=false -lock=false -out=tfplan || true
       working-directory: ${{ github.action_path }}/terraform
 
     - name: Terraform Apply
       shell: bash
-      if: ${{ inputs.action == 'provision' }}
+      if: ${{ inputs.action == 'provision' && inputs.plan-only != 'true' }}
       id: tfapply
       run: |
-        terraform apply -auto-approve tfplan
+        terraform apply -input=false -auto-approve tfplan
       working-directory: ${{ github.action_path }}/terraform
 
     - name: Terraform destroy

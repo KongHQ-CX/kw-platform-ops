@@ -70,3 +70,9 @@ demo_steps.txt
 tfplan
 .vars*
 export-creds.sh
+
+.bmad-core/
+.bmad-infrastructure-devops/
+.vscode/
+docs/
+.github/chatmodes/

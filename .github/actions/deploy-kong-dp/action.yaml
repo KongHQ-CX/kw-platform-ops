@@ -1,0 +1,486 @@
+name: "Deploy Kong DP"
+description: "Deploy or destroy a Kong data plane in Kubernetes via Helm (composite action with cert issuance)"
+
+inputs:
+  action:
+    description: "Action to perform (deploy|destroy)"
+    required: false
+    default: "deploy"
+  namespace:
+    description: "Target Kubernetes namespace"
+    required: false
+    default: "kong"
+  control-plane-name:
+    description: "Konnect Control Plane name"
+    required: true
+  system-account:
+    description: "Konnect system account identifier"
+    required: true
+  kubeconfig:
+    description: "Kubeconfig content (pass from a secret)"
+    required: true
+  helm-chart-version:
+    description: "Kong chart version"
+    required: false
+    default: "2.45.0"
+  kong-image-repo:
+    description: "Kong image repository"
+    required: false
+    default: "kong/kong-gateway"
+  kong-image-tag:
+    description: "Kong image tag"
+    required: false
+    default: "3.11.0.2"
+  s3-bucket-name:
+    description: "AWS S3 bucket for outage/fallback configuration"
+    required: false
+    default: ""
+  s3-prefix:
+    description: "S3 key prefix for fallback configuration"
+    required: false
+    default: "kong"
+  deploy-timeout-seconds:
+    description: "Timeout for deploy readiness checks"
+    required: false
+    default: "300"
+  values-file:
+    description: "Path to base Helm values file"
+    required: false
+    default: "k8s/values.yaml"
+  vault-address:
+    description: "Vault address (e.g., https://vault.example.com:8200)"
+    required: true
+  vault-token:
+    description: "Vault token (supply from a secret)"
+    required: true
+  cert-ttl:
+    description: "TTL for issued certificates"
+    required: false
+    default: "8760h"
+  clustering_cn:
+    description: "Common Name for clustering certificate"
+    required: false
+    default: "kong-cluster"
+  proxy_cn:
+    description: "Common Name for proxy certificate"
+    required: false
+    default: "kong-proxy"
+  konnect-api-url:
+    description: "Base URL for the Konnect API"
+    required: false
+    default: "https://global.api.konghq.com"
+  konnect-api-version:
+    description: "Pinned Konnect API version path segment"
+    required: false
+    default: "v2"
+
+outputs:
+  cluster-cert-file:
+    description: "Path to clustering certificate file"
+    value: ${{ steps.write_cluster_files.outputs.cert_file }}
+  cluster-key-file:
+    description: "Path to clustering key file"
+    value: ${{ steps.write_cluster_files.outputs.key_file }}
+  cluster-ca-file:
+    description: "Path to clustering CA certificate file"
+    value: ${{ steps.write_cluster_files.outputs.ca_file }}
+  proxy-cert-file:
+    description: "Path to proxy certificate file"
+    value: ${{ steps.write_proxy_files.outputs.cert_file }}
+  proxy-key-file:
+    description: "Path to proxy key file"
+    value: ${{ steps.write_proxy_files.outputs.key_file }}
+  proxy-ca-file:
+    description: "Path to proxy CA certificate file"
+    value: ${{ steps.write_proxy_files.outputs.ca_file }}
+  cp-endpoint:
+    description: "Konnect control plane endpoint for DP clustering"
+    value: ${{ steps.fetch_konnect_cp.outputs.cp_endpoint }}
+  telemetry-endpoint:
+    description: "Konnect telemetry endpoint for DP clustering"
+    value: ${{ steps.fetch_konnect_cp.outputs.telemetry_endpoint }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Setup kubectl
+      uses: azure/setup-kubectl@v4
+      with:
+        version: v1.27.16
+
+    - name: Setup helm
+      uses: azure/setup-helm@v4
+      with:
+        version: v3.12.3
+
+    - name: Prepare kubeconfig
+      id: kubeconfig
+      shell: bash
+      run: |
+        set -euo pipefail
+        KCONF_DIR="${RUNNER_TEMP}/kube"
+        mkdir -p "$KCONF_DIR"
+        echo "${{ inputs.kubeconfig }}" > "$KCONF_DIR/config"
+        chmod 600 "$KCONF_DIR/config"
+        echo "KUBECONFIG=$KCONF_DIR/config" >> "$GITHUB_ENV"
+        kubectl config view --minify >/dev/null 2>&1 || true
+
+    - name: Params echo (dry-run)
+      shell: bash
+      run: |
+        echo "action=${{ inputs.action }}"
+        echo "namespace=${{ inputs.namespace }}"
+        echo "control-plane-name=${{ inputs['control-plane-name'] }}"
+        echo "helm-chart-version=${{ inputs['helm-chart-version'] }}"
+        echo "kong-image=${{ inputs['kong-image-repo'] }}:${{ inputs['kong-image-tag'] }}"
+        echo "values-file=${{ inputs['values-file'] }}"
+        echo "s3-bucket=${{ inputs['s3-bucket-name'] }}"
+        echo "deploy-timeout-seconds=${{ inputs['deploy-timeout-seconds'] }}"
+        echo "konnect-api-url=${{ inputs['konnect-api-url'] }}"
+        echo "konnect-api-version=${{ inputs['konnect-api-version'] }}"
+
+    - name: Issue clustering certificates
+      if: ${{ inputs.action == 'deploy' }}
+      id: issue-clustering-certs
+      uses: hashicorp/vault-action@v3
+      with:
+        url: ${{ inputs.vault-address }}
+        token: ${{ inputs.vault-token }}
+        pki: |
+          pki/issue/kong {"common_name": "${{ inputs.clustering_cn }}", "ttl": "${{ inputs.cert-ttl }}"};
+
+    - name: Issue proxy certificates
+      if: ${{ inputs.action == 'deploy' }}
+      id: issue-proxy-certs
+      uses: hashicorp/vault-action@v3
+      with:
+        url: ${{ inputs.vault-address }}
+        token: ${{ inputs.vault-token }}
+        pki: |
+          pki/issue/kong {"common_name": "${{ inputs.proxy_cn }}", "ttl": "${{ inputs.cert-ttl }}"};
+
+    - name: Write clustering certs to files
+      if: ${{ inputs.action == 'deploy' }}
+      id: write_cluster_files
+      shell: bash
+      run: |
+        set -euo pipefail
+        TMP_DIR="${RUNNER_TEMP}/dp-certs/cluster"
+        mkdir -p "$TMP_DIR"
+        CERT="${{ steps.issue-clustering-certs.outputs.KONG_CERT }}"
+        KEY="${{ steps.issue-clustering-certs.outputs.KONG_KEY }}"
+        CA="${{ steps.issue-clustering-certs.outputs.KONG_CA }}"
+        echo "::add-mask::$CERT"; echo "::add-mask::$KEY"; echo "::add-mask::$CA"
+        printf "%s" "$CERT" > "$TMP_DIR/tls.crt"
+        printf "%s" "$KEY"  > "$TMP_DIR/tls.key"
+        printf "%s" "$CA"   > "$TMP_DIR/ca.crt"
+        chmod 600 "$TMP_DIR/tls.key"
+        echo "cert_file=$TMP_DIR/tls.crt" >> "$GITHUB_OUTPUT"
+        echo "key_file=$TMP_DIR/tls.key" >> "$GITHUB_OUTPUT"
+        echo "ca_file=$TMP_DIR/ca.crt"   >> "$GITHUB_OUTPUT"
+
+    - name: Write proxy certs to files
+      if: ${{ inputs.action == 'deploy' }}
+      id: write_proxy_files
+      shell: bash
+      run: |
+        set -euo pipefail
+        TMP_DIR="${RUNNER_TEMP}/dp-certs/proxy"
+        mkdir -p "$TMP_DIR"
+        CERT="${{ steps.issue-proxy-certs.outputs.KONG_CERT }}"
+        KEY="${{ steps.issue-proxy-certs.outputs.KONG_KEY }}"
+        CA="${{ steps.issue-proxy-certs.outputs.KONG_CA }}"
+        echo "::add-mask::$CERT"; echo "::add-mask::$KEY"; echo "::add-mask::$CA"
+        printf "%s" "$CERT" > "$TMP_DIR/tls.crt"
+        printf "%s" "$KEY"  > "$TMP_DIR/tls.key"
+        printf "%s" "$CA"   > "$TMP_DIR/ca.crt"
+        chmod 600 "$TMP_DIR/tls.key"
+        echo "cert_file=$TMP_DIR/tls.crt" >> "$GITHUB_OUTPUT"
+        echo "key_file=$TMP_DIR/tls.key" >> "$GITHUB_OUTPUT"
+        echo "ca_file=$TMP_DIR/ca.crt"   >> "$GITHUB_OUTPUT"
+
+    - name: Ensure namespace
+      if: inputs.action == 'deploy'
+      shell: bash
+      run: |
+        set -euo pipefail
+        NS="${{ inputs.namespace }}"
+        kubectl get namespace "$NS" >/dev/null 2>&1 || kubectl create namespace "$NS"
+        echo "Namespace '${NS}' ensured."
+
+    - name: Import Konnect system account token from Vault
+      if: inputs.action == 'deploy'
+      id: import_sa
+      uses: hashicorp/vault-action@v3
+      with:
+        url: ${{ inputs.vault-address }}
+        token: ${{ inputs.vault-token }}
+        secrets: |
+          secret/data/system-accounts/${{ inputs['system-account'] }} token | KONNECT_SYSTEM_ACCOUNT_TOKEN ;
+
+    - name: Fetch Konnect CP endpoints
+      if: inputs.action == 'deploy'
+      id: fetch_konnect_cp
+      shell: bash
+      run: |
+        set -euo pipefail
+        # Preconditions
+        if ! command -v jq >/dev/null 2>&1; then
+          echo "jq is required but not found on PATH. Install jq and retry." >&2
+          exit 2
+        fi
+        if [ -z "${{ steps.import_sa.outputs.KONNECT_SYSTEM_ACCOUNT_TOKEN }}" ]; then
+          echo "Failed to retrieve Konnect system account token from Vault." >&2
+          exit 2
+        fi
+
+        BASE_URL="${{ inputs['konnect-api-url'] }}"
+        API_VER="${{ inputs['konnect-api-version'] }}"
+        CP_NAME_RAW="${{ inputs['control-plane-name'] }}"
+        CP_NAME_ENC=$(jq -rn --arg v "$CP_NAME_RAW" '$v|@uri')
+        URL="${BASE_URL}/${API_VER}/control-planes?filter[name]=$CP_NAME_ENC&page[size]=2"
+
+        echo "Querying Konnect API: $URL" >&2
+        # Perform request (fail fast on HTTP error)
+        RESP=$(curl -fsSL \
+          -H "Authorization: Bearer ${{ steps.import_sa.outputs.KONNECT_SYSTEM_ACCOUNT_TOKEN }}" \
+          -H "Accept: application/json" \
+          "$URL")
+
+        # Determine count of matches supporting common envelope shapes
+        COUNT=$(printf '%s' "$RESP" | jq -r '
+          if type=="array" then length
+          elif has("items") then (.items|length)
+          elif has("data") then (.data|length)
+          else 0 end')
+
+        if [ "$COUNT" -ne 1 ]; then
+          echo "Expected exactly one control plane named '$CP_NAME_RAW', got $COUNT" >&2
+          printf '%s\n' "$RESP" | jq . >&2 || true
+          exit 3
+        fi
+
+        # Extract the first item
+        ITEM=$(printf '%s' "$RESP" | jq -c '
+          if type=="array" then .[0]
+          elif has("items") then .items[0]
+          elif has("data") then .data[0]
+          else . end')
+
+        # Try known field names, including nested config
+        CP_ENDPOINT=$(printf '%s' "$ITEM" | jq -r '
+          if has("control_plane_endpoint") then .control_plane_endpoint
+          elif has("cluster_endpoint") then .cluster_endpoint
+          elif has("config") and (.config|has("control_plane_endpoint")) then .config.control_plane_endpoint
+          else "" end')
+
+        TP_ENDPOINT=$(printf '%s' "$ITEM" | jq -r '
+          if has("telemetry_endpoint") then .telemetry_endpoint
+          elif has("cluster_telemetry_endpoint") then .cluster_telemetry_endpoint
+          elif has("config") and (.config|has("telemetry_endpoint")) then .config.telemetry_endpoint
+          else "" end')
+
+        if [ -z "$CP_ENDPOINT" ] || [ -z "$TP_ENDPOINT" ]; then
+          echo "Malformed Konnect API response: missing endpoints for '$CP_NAME_RAW'" >&2
+          printf '%s\n' "$ITEM" | jq . >&2 || true
+          exit 4
+        fi
+
+        echo "Resolved endpoints: cp=$CP_ENDPOINT, telemetry=$TP_ENDPOINT"
+        # Expose as both env and step outputs
+        echo "KONNECT_CP_ENDPOINT=$CP_ENDPOINT" >> "$GITHUB_ENV"
+        echo "KONNECT_TELEMETRY_ENDPOINT=$TP_ENDPOINT" >> "$GITHUB_ENV"
+        echo "cp_endpoint=$CP_ENDPOINT" >> "$GITHUB_OUTPUT"
+        echo "telemetry_endpoint=$TP_ENDPOINT" >> "$GITHUB_OUTPUT"
+
+    - name: Create TLS secrets
+      if: inputs.action == 'deploy'
+      shell: bash
+      run: |
+        set -euo pipefail
+        NS="${{ inputs.namespace }}"
+        # Cluster TLS secret
+        kubectl create secret tls kong-cluster-cert \
+          --cert="${{ steps.write_cluster_files.outputs.cert_file }}" \
+          --key="${{ steps.write_cluster_files.outputs.key_file }}" \
+          -n "$NS" --dry-run=client -o yaml | kubectl apply -f -
+
+        # Proxy TLS secret
+        kubectl create secret tls kong-proxy-cert \
+          --cert="${{ steps.write_proxy_files.outputs.cert_file }}" \
+          --key="${{ steps.write_proxy_files.outputs.key_file }}" \
+          -n "$NS" --dry-run=client -o yaml | kubectl apply -f -
+        echo "Secrets 'kong-cluster-cert' and 'kong-proxy-cert' ensured in namespace '$NS'."
+
+    - name: Validate secrets
+      if: inputs.action == 'deploy'
+      shell: bash
+      run: |
+        set -euo pipefail
+        NS="${{ inputs.namespace }}"
+        need_jq() { command -v jq >/dev/null 2>&1 || { echo "jq is required" >&2; exit 2; }; }
+        need_b64() { command -v base64 >/dev/null 2>&1 || { echo "base64 is required" >&2; exit 2; }; }
+        need_jq; need_b64
+
+        # Sanity print sanitized shapes (no PEM content)
+        for name in kong-cluster-cert kong-proxy-cert; do
+          kubectl get secret "$name" -n "$NS" -o json | \
+            jq '{name: .metadata.name, type: .type, keys: (.data|keys)}'
+        done
+
+        # Verify that secret data matches issued certs (sha256 of decoded data)
+        verify_secret() {
+          local name="$1" cert_file="$2" key_file="$3"
+          local crt_hash_file key_hash_file crt_hash_secret key_hash_secret
+          crt_hash_file=$(shasum -a 256 "$cert_file" | awk '{print $1}')
+          key_hash_file=$(shasum -a 256 "$key_file" | awk '{print $1}')
+          crt_hash_secret=$(kubectl get secret "$name" -n "$NS" -o json | jq -r '.data["tls.crt"]' | base64 -d | shasum -a 256 | awk '{print $1}')
+          key_hash_secret=$(kubectl get secret "$name" -n "$NS" -o json | jq -r '.data["tls.key"]' | base64 -d | shasum -a 256 | awk '{print $1}')
+          if [ "$crt_hash_file" != "$crt_hash_secret" ] || [ "$key_hash_file" != "$key_hash_secret" ]; then
+            echo "Secret '$name' contents do not match issued files." >&2
+            echo "expected crt=$crt_hash_file got=$crt_hash_secret" >&2
+            echo "expected key=$key_hash_file got=$key_hash_secret" >&2
+            exit 3
+          fi
+          echo "Verified secret '$name' matches issued cert and key."
+        }
+
+        verify_secret "kong-cluster-cert" "${{ steps.write_cluster_files.outputs.cert_file }}" "${{ steps.write_cluster_files.outputs.key_file }}"
+        verify_secret "kong-proxy-cert"   "${{ steps.write_proxy_files.outputs.cert_file }}"   "${{ steps.write_proxy_files.outputs.key_file }}"
+
+    - name: Helm repo add/update
+      if: inputs.action == 'deploy'
+      shell: bash
+      run: |
+        set -euo pipefail
+        helm repo add kong https://charts.konghq.com >/dev/null 2>&1 || true
+        helm repo update
+        echo "Helm repos updated."
+
+    - name: Helm upgrade --install kong-config-exporter
+      if: inputs.action == 'deploy'
+      shell: bash
+      run: |
+        set -euo pipefail
+        NS="${{ inputs.namespace }}"
+        CHART_PATH="${{ github.workspace }}/charts/kong-config-exporter"
+        if [ ! -d "$CHART_PATH" ]; then
+          echo "Local chart not found: $CHART_PATH" >&2
+          exit 2
+        fi
+        helm upgrade --install kong-config-exporter "$CHART_PATH" \
+          --namespace "$NS" \
+          --create-namespace \
+          --set s3.bucketName="${{ inputs['s3-bucket-name'] }}" \
+          --set s3.prefix="${{ inputs['s3-prefix'] }}" \
+          --set konnect.cpEndpoint="$KONNECT_CP_ENDPOINT" \
+          --set konnect.telemetryEndpoint="$KONNECT_TELEMETRY_ENDPOINT"
+        echo "kong-config-exporter installed/updated."
+
+    - name: Helm upgrade --install kong-dp
+      if: inputs.action == 'deploy'
+      shell: bash
+      run: |
+        set -euo pipefail
+        NS="${{ inputs.namespace }}"
+        VALUES_FILE="${{ inputs['values-file'] }}"
+        if [ ! -f "$VALUES_FILE" ]; then
+          echo "Values file not found: $VALUES_FILE" >&2
+          exit 2
+        fi
+        helm upgrade --install kong-dp kong/kong \
+          --namespace "$NS" \
+          --version "${{ inputs['helm-chart-version'] }}" \
+          -f "$VALUES_FILE" \
+          --set image.repository="${{ inputs['kong-image-repo'] }}" \
+          --set image.tag="${{ inputs['kong-image-tag'] }}" \
+          --set env.cluster_control_plane="$KONNECT_CP_ENDPOINT" \
+          --set env.cluster_telemetry_endpoint="$KONNECT_TELEMETRY_ENDPOINT" \
+          --set secretVolumes[0]="kong-cluster-cert" \
+          --set secretVolumes[1]="kong-proxy-cert"
+        echo "kong-dp installed/updated."
+
+    - name: Wait for Kong pods Ready
+      if: inputs.action == 'deploy'
+      shell: bash
+      run: |
+        set -euo pipefail
+        NS="${{ inputs.namespace }}"
+        TIMEOUT="${{ inputs['deploy-timeout-seconds'] }}s"
+        # Wait for any Kong pods to appear
+        echo "Waiting for kong pods to be created..."
+        for i in $(seq 1 30); do
+          kubectl get pods -n "$NS" -l app.kubernetes.io/name=kong --no-headers 2>/dev/null | grep -q . && break || sleep 2
+          if [ "$i" -eq 30 ]; then echo "Timed out waiting for Kong pods to appear" >&2; exit 4; fi
+        done
+        kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=kong -n "$NS" --timeout="$TIMEOUT"
+        echo "Kong pods ready."
+
+    - name: Helm uninstall releases
+      if: inputs.action == 'destroy'
+      shell: bash
+      run: |
+        set -euo pipefail
+        NS="${{ inputs.namespace }}"
+        TIMEOUT="${{ inputs['deploy-timeout-seconds'] }}s"
+
+        # Guardrail: never delete protected namespaces
+        PROTECTED_NS=(kube-system kube-public kube-node-lease default)
+        for p in "${PROTECTED_NS[@]}"; do
+          if [ "$NS" = "$p" ]; then
+            echo "Refusing to delete protected namespace: $NS" >&2
+            exit 5
+          fi
+        done
+
+        # Uninstall Helm releases if they exist (idempotent)
+        if helm status kong-dp -n "$NS" >/dev/null 2>&1; then
+          helm uninstall kong-dp -n "$NS"
+        else
+          echo "Release kong-dp not installed in $NS, skipping."
+        fi
+
+        if helm status kong-config-exporter -n "$NS" >/dev/null 2>&1; then
+          helm uninstall kong-config-exporter -n "$NS"
+        else
+          echo "Release kong-config-exporter not installed in $NS, skipping."
+        fi
+        echo "Helm releases ensured uninstalled."
+
+        # Delete secrets if present (idempotent)
+        if kubectl get secret kong-cluster-cert -n "$NS" >/dev/null 2>&1; then
+          kubectl delete secret kong-cluster-cert -n "$NS"
+        else
+          echo "Secret kong-cluster-cert not found in $NS, skipping."
+        fi
+        if kubectl get secret kong-proxy-cert -n "$NS" >/dev/null 2>&1; then
+          kubectl delete secret kong-proxy-cert -n "$NS"
+        else
+          echo "Secret kong-proxy-cert not found in $NS, skipping."
+        fi
+
+        # Delete namespace if it exists; wait for deletion completion
+        if kubectl get namespace "$NS" >/dev/null 2>&1; then
+          kubectl delete namespace "$NS" --wait=false
+          echo "Waiting for namespace $NS to terminate (timeout=$TIMEOUT) ..."
+          kubectl wait --for=delete namespace/"$NS" --timeout="$TIMEOUT" || {
+            echo "Namespace $NS did not fully terminate within $TIMEOUT." >&2
+            exit 6
+          }
+        else
+          echo "Namespace $NS does not exist, skipping delete."
+        fi
+        echo "Destroy path completed."
+
+    - name: Validate destroy completion
+      if: inputs.action == 'destroy'
+      shell: bash
+      run: |
+        set -euo pipefail
+        NS="${{ inputs.namespace }}"
+        # Validate namespace removal
+        if kubectl get namespace "$NS" >/dev/null 2>&1; then
+          echo "Namespace $NS still exists after destroy." >&2
+          exit 7
+        fi
+        echo "Namespace $NS removed."

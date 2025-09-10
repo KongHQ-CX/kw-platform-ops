@@ -1,0 +1,17 @@
+image:
+  repository: alpine
+  tag: "3.20"
+  pullPolicy: IfNotPresent
+
+schedule: "0 * * * *"
+backoffLimit: 1
+activeDeadlineSeconds: 300
+ttlSecondsAfterFinished: 3600
+
+s3:
+  bucketName: ""
+  prefix: "kong"
+
+konnect:
+  cpEndpoint: ""
+  telemetryEndpoint: ""

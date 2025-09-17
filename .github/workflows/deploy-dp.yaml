@@ -1,0 +1,59 @@
+name: Deploy Kong DP
+
+on:
+  workflow_dispatch:
+    inputs:
+      control_plane_name:
+        description: "Konnect control plane name"
+        required: true
+        default: flight-operations-dev
+      system_account:
+        description: "System account to use"
+        required: true
+        default: sa-flight-operations
+      vault-system-accounts-mount:
+        description: "Vault KV mount for system accounts"
+        required: false
+        default: "flight-operations-kv"
+      helm-chart-version:
+        description: "Helm chart version to deploy"
+        required: false
+        default: "2.45.0"
+      kong-image-tag:
+        description: "Kong Gateway image tag to deploy"
+        required: false
+        default: "3.11.0.2"
+      deploy-timeout-seconds:
+        description: "Timeout in seconds to wait for the deployment to be ready"
+        required: false
+        default: "300"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy DP
+        uses: ./.github/actions/deploy-kong-dp
+        with:
+          action: deploy
+          namespace: kong
+          control-plane-name: ${{ inputs.control_plane_name }}
+          system-account: ${{ inputs.system_account }}
+          kubeconfig: ${{ secrets.KUBECONFIG_CONTENTS }}
+          values-file: k8s/values.yaml
+          helm-chart-version: ${{ inputs.helm-chart-version }}
+          kong-image-repo: kong/kong-gateway
+          kong-image-tag: ${{ inputs.kong-image-tag }}
+          s3-bucket-name: kw.konnect.teams
+          s3-prefix: fallback
+          deploy-timeout-seconds: ${{ inputs.deploy-timeout-seconds }}
+          vault-address: ${{ vars.VAULT_ADDR }}
+          vault-system-accounts-mount: ${{ inputs['vault-system-accounts-mount'] }}
+          vault-token: ${{ secrets.VAULT_TOKEN }}
+          # Optional overrides
+          konnect-api-url: ${{ vars.KONNECT_SERVER_URL }}
+          konnect-api-version: v2
+          clustering_cn: clustering.kong.edu.local
+          proxy_cn: proxy.kong.edu.local

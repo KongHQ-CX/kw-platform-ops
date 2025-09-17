@@ -59,3 +59,7 @@ rules:
   owasp:api4:2023-array-limit: warn
   owasp:api2:2023-jwt-best-practices: warn
   owasp:api9:2023-inventory-environment: warn
+  owasp:api8:2023-define-cors-origin: warn
+  owasp:api9:2023-inventory-access: warn
+  owasp:api2:2023-no-http-basic: warn
+  oas3-valid-media-example: warn

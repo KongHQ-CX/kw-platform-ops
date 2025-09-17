@@ -1,0 +1,34 @@
+rules:
+  no-global-entities-allowed:
+    description: "Ensure no global entities are used"
+    given: "$"
+    severity: error
+    then:
+      - field: plugins
+        function: undefined
+      - field: consumers
+        function: undefined
+      - field: certificates
+        function: undefined
+      - field: ca_certificates
+        function: undefined
+      - field: snis
+        function: undefined
+  allowed_plugins_service:
+    description: "Ensure only allowed plugins are used on service"
+    given: $.services[*].plugins[*]
+    severity: error
+    then:
+      field: name
+      function: "pattern"
+      functionOptions:
+        match: "^(request-transformer|request-transformer-advanced|response-transformer|response-transformer-advanced|correlation-id|cors|pre-function|post-function|route-transformer-advanced)$"
+  allowed_plugins_route:
+      description: "Ensure only allowed plugins are used on routes"
+      given: $.services[*].routes[*].plugins[*]
+      severity: error
+      then:
+        field: name
+        function: "pattern"
+        functionOptions:
+          match: "^(request-transformer|request-transformer-advanced|response-transformer|response-transformer-advanced|correlation-id|cors|pre-function|post-function|route-transformer-advanced)$"

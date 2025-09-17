@@ -82,6 +82,7 @@ runs:
       shell: bash
       run: |
         ${{ github.action_path }}/scripts/validate-config.sh "${{ inputs.konnect-resources }}"
+        ${{ github.action_path }}/scripts/validate-config.sh "${{ inputs.konnect-resources }}"
 
     - name: Setup Terraform Environment
       shell: bash

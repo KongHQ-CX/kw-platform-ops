@@ -50,6 +50,9 @@ inputs:
   vault-address:
     description: "Vault address (e.g., https://vault.example.com:8200)"
     required: true
+  vault-system-accounts-mount:
+    description: "Vault KV mount for system accounts"
+    required: false
   vault-token:
     description: "Vault token (supply from a secret)"
     required: true
@@ -120,7 +123,7 @@ runs:
         set -euo pipefail
         KCONF_DIR="${RUNNER_TEMP}/kube"
         mkdir -p "$KCONF_DIR"
-        echo "${{ inputs.kubeconfig }}" > "$KCONF_DIR/config"
+        echo "${{ inputs.kubeconfig }}" | base64 -d > "$KCONF_DIR/config"
         chmod 600 "$KCONF_DIR/config"
         echo "KUBECONFIG=$KCONF_DIR/config" >> "$GITHUB_ENV"
         kubectl config view --minify >/dev/null 2>&1 || true
@@ -131,13 +134,21 @@ runs:
         echo "action=${{ inputs.action }}"
         echo "namespace=${{ inputs.namespace }}"
         echo "control-plane-name=${{ inputs['control-plane-name'] }}"
+        echo "system-account=${{ inputs['system-account'] }}"
+        echo "kubeconfig=${{ inputs.kubeconfig }}"
         echo "helm-chart-version=${{ inputs['helm-chart-version'] }}"
         echo "kong-image=${{ inputs['kong-image-repo'] }}:${{ inputs['kong-image-tag'] }}"
         echo "values-file=${{ inputs['values-file'] }}"
         echo "s3-bucket=${{ inputs['s3-bucket-name'] }}"
+        echo "s3-prefix=${{ inputs['s3-prefix'] }}"
         echo "deploy-timeout-seconds=${{ inputs['deploy-timeout-seconds'] }}"
+        echo "vault-address=${{ inputs['vault-address'] }}"
+        echo "vault-system-accounts-mount=${{ inputs['vault-system-accounts-mount'] }}"
+        echo "vault-token=${{ inputs['vault-token'] }}"
         echo "konnect-api-url=${{ inputs['konnect-api-url'] }}"
         echo "konnect-api-version=${{ inputs['konnect-api-version'] }}"
+        echo "clustering_cn=${{ inputs['clustering_cn'] }}"
+        echo "proxy_cn=${{ inputs['proxy_cn'] }}"
 
     - name: Issue clustering certificates
       if: ${{ inputs.action == 'deploy' }}
@@ -216,7 +227,7 @@ runs:
         url: ${{ inputs.vault-address }}
         token: ${{ inputs.vault-token }}
         secrets: |
-          secret/data/system-accounts/${{ inputs['system-account'] }} token | KONNECT_SYSTEM_ACCOUNT_TOKEN ;
+          ${{ inputs['vault-system-accounts-mount'] }}/data/system-accounts/${{ inputs['system-account'] }} token | KONNECT_SYSTEM_ACCOUNT_TOKEN ;
 
     - name: Fetch Konnect CP endpoints
       if: inputs.action == 'deploy'
@@ -238,13 +249,14 @@ runs:
         API_VER="${{ inputs['konnect-api-version'] }}"
         CP_NAME_RAW="${{ inputs['control-plane-name'] }}"
         CP_NAME_ENC=$(jq -rn --arg v "$CP_NAME_RAW" '$v|@uri')
-        URL="${BASE_URL}/${API_VER}/control-planes?filter[name]=$CP_NAME_ENC&page[size]=2"
+        URL="${BASE_URL}/${API_VER}/control-planes"
 
         echo "Querying Konnect API: $URL" >&2
         # Perform request (fail fast on HTTP error)
-        RESP=$(curl -fsSL \
+        RESP=$(curl -fsSL -G \
           -H "Authorization: Bearer ${{ steps.import_sa.outputs.KONNECT_SYSTEM_ACCOUNT_TOKEN }}" \
           -H "Accept: application/json" \
+          --data-urlencode "filter[name][eq]=$CP_NAME_ENC" \
           "$URL")
 
         # Determine count of matches supporting common envelope shapes
@@ -287,11 +299,53 @@ runs:
         fi
 
         echo "Resolved endpoints: cp=$CP_ENDPOINT, telemetry=$TP_ENDPOINT"
-        # Expose as both env and step outputs
+        # Derive hostnames (strip scheme/path) for server_name directives
+        strip_host() {
+          # Accepts full URL or bare host; strips scheme, path, query, fragment.
+          local raw="$1" work
+          work="${raw#*://}"      # drop scheme if present
+          work="${work%%/*}"      # drop first path segment and rest
+          work="${work%%\?*}"     # drop query
+          work="${work%%#*}"      # drop fragment
+          printf '%s' "$work"
+        }
+        CP_HOST=$(strip_host "$CP_ENDPOINT") || CP_HOST=""
+        TP_HOST=$(strip_host "$TP_ENDPOINT") || TP_HOST=""
+
+        if [ -z "$CP_HOST" ] || [ -z "$TP_HOST" ]; then
+          echo "Failed to parse hostnames from endpoints (cp='$CP_ENDPOINT' tp='$TP_ENDPOINT')." >&2
+          exit 5
+        fi
+
+        # Append :443 if no explicit port present
+        ensure_port() {
+          local host="$1"
+            if [[ "$host" == *:* ]]; then
+              printf '%s' "$host"
+            else
+              printf '%s:443' "$host"
+            fi
+        }
+        CP_HOST_PORT=$(ensure_port "$CP_HOST")
+        TP_HOST_PORT=$(ensure_port "$TP_HOST")
+
+        echo "Derived hosts: cp_host=$CP_HOST cp_host_port=$CP_HOST_PORT tp_host=$TP_HOST tp_host_port=$TP_HOST_PORT"
+
+        # Backward compatibility (original env names without modification)
         echo "KONNECT_CP_ENDPOINT=$CP_ENDPOINT" >> "$GITHUB_ENV"
         echo "KONNECT_TELEMETRY_ENDPOINT=$TP_ENDPOINT" >> "$GITHUB_ENV"
+
+        # New env vars for Helm template usage
+        echo "KONNECT_CP_HOST=$CP_HOST" >> "$GITHUB_ENV"
+        echo "KONNECT_TELEMETRY_HOST=$TP_HOST" >> "$GITHUB_ENV"
+        echo "KONNECT_CP_HOST_PORT=$CP_HOST_PORT" >> "$GITHUB_ENV"
+        echo "KONNECT_TELEMETRY_HOST_PORT=$TP_HOST_PORT" >> "$GITHUB_ENV"
+
+        # Step outputs (retain legacy names; add host variants)
         echo "cp_endpoint=$CP_ENDPOINT" >> "$GITHUB_OUTPUT"
         echo "telemetry_endpoint=$TP_ENDPOINT" >> "$GITHUB_OUTPUT"
+        echo "cp_host=$CP_HOST" >> "$GITHUB_OUTPUT"
+        echo "telemetry_host=$TP_HOST" >> "$GITHUB_OUTPUT"
 
     - name: Create TLS secrets
       if: inputs.action == 'deploy'
@@ -368,7 +422,7 @@ runs:
           echo "Local chart not found: $CHART_PATH" >&2
           exit 2
         fi
-        helm upgrade --install kong-config-exporter "$CHART_PATH" \
+        helm upgrade --install kong-config-exporter-${{ inputs['control-plane-name'] }} "$CHART_PATH" \
           --namespace "$NS" \
           --create-namespace \
           --set s3.bucketName="${{ inputs['s3-bucket-name'] }}" \
@@ -394,10 +448,14 @@ runs:
           -f "$VALUES_FILE" \
           --set image.repository="${{ inputs['kong-image-repo'] }}" \
           --set image.tag="${{ inputs['kong-image-tag'] }}" \
-          --set env.cluster_control_plane="$KONNECT_CP_ENDPOINT" \
-          --set env.cluster_telemetry_endpoint="$KONNECT_TELEMETRY_ENDPOINT" \
+          --set env.cluster_control_plane="$KONNECT_CP_HOST_PORT" \
+          --set env.cluster_server_name="$KONNECT_CP_HOST" \
+          --set env.cluster_telemetry_endpoint="$KONNECT_TELEMETRY_HOST_PORT" \
+          --set env.cluster_telemetry_server_name="$KONNECT_TELEMETRY_HOST" \
           --set secretVolumes[0]="kong-cluster-cert" \
-          --set secretVolumes[1]="kong-proxy-cert"
+          --set secretVolumes[1]="kong-proxy-cert" \
+          --set env.cluster_cert=/etc/secrets/kong-cluster-cert/tls.crt \
+          --set env.cluster_cert_key=/etc/secrets/kong-cluster-cert/tls.key
         echo "kong-dp installed/updated."
 
     - name: Wait for Kong pods Ready

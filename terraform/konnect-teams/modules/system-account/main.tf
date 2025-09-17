@@ -49,6 +49,17 @@ resource "konnect_system_account_role" "cp_viewers" {
   account_id       = konnect_system_account.this.id
 }
 
+### Add the control plane Admin if the team has the entitlement
+resource "konnect_system_account_role" "cp_admins" {
+  count            = contains(var.team_entitlements, "konnect.control_plane.admin") ? 1 : 0
+
+  entity_id        = "*"
+  entity_region    = "eu" # Hardcoded for now
+  entity_type_name = "Control Planes"
+  role_name        = "Admin"
+  account_id       = konnect_system_account.this.id
+}
+
 ### Add the api product creator role if team has the entitlement
 resource "konnect_system_account_role" "ap_creators" {
   count            = contains(var.team_entitlements, "konnect.api_product") ? 1 : 0

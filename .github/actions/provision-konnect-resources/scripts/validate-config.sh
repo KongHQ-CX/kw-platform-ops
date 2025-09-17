@@ -42,6 +42,10 @@ allowed_types=(
   "konnect.portal_customization"
   "konnect.portal_page"
   "konnect.portal_snippet"
+  "konnect.portal_appearance"
+  "konnect.portal_logo"
+  "konnect.portal_favicon"
+  "konnect.portal_product_version"
 )
 invalid_resources=""
 

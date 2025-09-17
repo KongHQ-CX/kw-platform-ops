@@ -1,6 +1,5 @@
 bucket = "tfstate"
 key = "konnect.tfstate"
-region = "main"
 use_path_style = "true"
 encrypt = "false"
 skip_region_validation = "true"

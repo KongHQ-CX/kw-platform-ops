@@ -1,0 +1,68 @@
+name: Developer Portal
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "portal/*.yaml"
+
+env:
+  TF_VAR_resources_path: ${{ github.workspace }}/konnect/developer-portal
+
+jobs:
+  developer-portal:
+    runs-on: ubuntu-latest
+    env:
+      # Konnect related variables
+      # Used for configuring TF Konnect provider
+      KONNECT_SERVER_URL: ${{ vars.KONNECT_SERVER_URL }}
+      KONNECT_TOKEN: ${{ secrets.KONNECT_TOKEN }}
+
+      # Hashicorp Vault related variables
+      # Used for configuring TF Vault provider
+      VAULT_ADDR: ${{ vars.VAULT_ADDR }}
+      VAULT_TOKEN: ${{ secrets.VAULT_TOKEN }}
+
+      # Terraform state S3 bucket
+      AWS_S3_BUCKET: "kw.konnect.dev-portal-terraform-state"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - id: install-aws-cli
+        uses: unfor19/install-aws-cli-action@v1
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Ensure TF state S3 bucket exists
+        shell: bash
+        run: |
+          ./create-s3-bucket.sh ${{ env.AWS_S3_BUCKET }}
+        working-directory: ${{ github.workspace }}/scripts
+
+      - name: Provision Konnect Developer Portal resources
+        uses: ./.github/actions/provision-konnect-resources
+        with:
+          action: "provision"
+          plan-only: "false"
+          konnect-resources: ${{ env.TF_VAR_resources_path }}/config.yaml
+          vault-address: ${{ env.VAULT_ADDR }}
+          vault-token: ${{ env.VAULT_TOKEN }}
+          aws-endpoint-url: ${{ vars.AWS_ENDPOINT_URL }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          konnect-server-url: ${{ env.KONNECT_SERVER_URL }}
+          konnect-token: ${{ env.KONNECT_TOKEN }}
+          konnect-region: ${{ vars.KONNECT_REGION }}
+          konnect-team-name: "portal-admin"
+          s3-bucket: ${{ env.AWS_S3_BUCKET }}

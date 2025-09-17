@@ -234,9 +234,23 @@ module "developer_portals" {
 
   for_each = { for p in local.developer_portals : p.name => p }
 
-  name        = each.value.name
-  description = lookup(each.value, "description", null)
-  labels      = lookup(each.value, "labels", {})
+  name                      = each.value.name
+  description               = lookup(each.value, "description", null)
+  display_name              = lookup(each.value, "display_name", null)
+  labels                    = lookup(each.value, "labels", {})
+  authentication_enabled    = lookup(each.value, "authentication_enabled", null)
+  auto_approve_applications = lookup(each.value, "auto_approve_applications", null)
+  auto_approve_developers   = lookup(each.value, "auto_approve_developers", null)
+  default_api_visibility    = lookup(each.value, "default_api_visibility", null)
+  default_application_auth_strategy_id = try(
+    module.application_auth_strategy[each.value.default_application_auth_strategy_name].id,
+    lookup(each.value, "default_application_auth_strategy_id", null)
+  )
+  default_page_visibility = lookup(each.value, "default_page_visibility", null)
+  rbac_enabled            = lookup(each.value, "rbac_enabled", null)
+  force_destroy           = lookup(each.value, "force_destroy", null)
+
+  depends_on = [module.application_auth_strategy]
 }
 
 
@@ -288,10 +302,13 @@ module "portal_customizations" {
 
   for_each = { for c in local.portal_customizations : c.portal_name => c }
 
-  portal_id = module.developer_portals[each.value.portal_name].id
-  css       = lookup(each.value, "css", null)
-  layout    = lookup(each.value, "layout", null)
-  robots    = lookup(each.value, "robots", null)
+  portal_id     = module.developer_portals[each.value.portal_name].id
+  css           = lookup(each.value, "css", null)
+  layout        = lookup(each.value, "layout", null)
+  robots        = lookup(each.value, "robots", null)
+  menu          = lookup(each.value, "menu", null)
+  spec_renderer = lookup(each.value, "spec_renderer", null)
+  theme         = lookup(each.value, "theme", null)
 }
 
 module "portal_pages" {
@@ -663,14 +680,14 @@ module "api_versions" {
 #   }
 # }
 
-# module "api_publications" {
-#   source = "./modules/api_publication"
+ module "api_publications" {
+   source = "./modules/api_publication"
 
-#   for_each = { for pub in local.api_publications : "${pub.api_name}-${pub.portal_name}" => pub }
+   for_each = { for pub in local.api_publications : "${pub.api_name}-${pub.portal_name}" => pub }
 
-#   api_id                     = module.apis["${each.value.api_name}-${lookup(each.value, "api_version", "")}"].id
-#   portal_id                  = module.developer_portals[each.value.portal_name].id
-#   auth_strategy_ids          = lookup(each.value, "auth_strategy_ids", null) != null ? [for name in each.value.auth_strategy_ids : module.application_auth_strategy[name].id] : null
-#   auto_approve_registrations = lookup(each.value, "auto_approve_registrations", null)
-#   visibility                 = lookup(each.value, "visibility", "private")
-# }
+   api_id                     = module.apis["${each.value.api_name}-${lookup(each.value, "api_version", "")}"].id
+   portal_id                  = module.developer_portals[each.value.portal_name].id
+   auth_strategy_ids          = lookup(each.value, "auth_strategy_ids", null) != null ? [for name in each.value.auth_strategy_ids : module.application_auth_strategy[name].id] : null
+   auto_approve_registrations = lookup(each.value, "auto_approve_registrations", null)
+   visibility                 = lookup(each.value, "visibility", "private")
+ }

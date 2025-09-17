@@ -13,4 +13,13 @@ resource "konnect_portal_customization" "this" {
   css    = var.css
   layout = var.layout
   robots = var.robots
+
+  # Menu configuration - use argument syntax, not block syntax
+  menu = var.menu
+
+  # Spec renderer configuration - use argument syntax, not block syntax  
+  spec_renderer = var.spec_renderer
+
+  # Theme configuration - use argument syntax, not block syntax
+  theme = var.theme
 }

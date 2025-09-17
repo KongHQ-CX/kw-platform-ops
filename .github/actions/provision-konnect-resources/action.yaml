@@ -1,7 +1,7 @@
 name: 'Konnect Resources'
 description: 'Provision or destroy Konnect resources'
 inputs:
-  config:
+  konnect-resources:
     description: 'Path to the provisioning config file'
     required: true
   action:
@@ -35,6 +35,9 @@ inputs:
     description: 'AWS region for S3'
     required: false
     default: 'eu-central-1'
+  s3-bucket:
+    description: 'S3 bucket name for Terraform state'
+    required: true
   konnect-region:
     description: "Konnect region"
     required: false
@@ -78,7 +81,7 @@ runs:
     - name: Validate config
       shell: bash
       run: |
-        ${{ github.action_path }}/scripts/validate-config.sh "${{ inputs.config }}"
+        ${{ github.action_path }}/scripts/validate-config.sh "${{ inputs.konnect-resources }}"
 
     - name: Setup Terraform Environment
       shell: bash
@@ -89,6 +92,7 @@ runs:
         echo "VAULT_TOKEN=${{ inputs.vault-token }}" >> $GITHUB_ENV
 
         # Set AWS environment variables
+        # TODO: is endpoint-url needed?
         echo "AWS_ENDPOINT_URL=${{ inputs.aws-endpoint-url }}" >> $GITHUB_ENV
         echo "AWS_ACCESS_KEY_ID=${{ inputs.aws-access-key-id }}" >> $GITHUB_ENV
         echo "AWS_SECRET_ACCESS_KEY=${{ inputs.aws-secret-access-key }}" >> $GITHUB_ENV
@@ -101,14 +105,17 @@ runs:
         echo "TF_VAR_konnect_region=${{ inputs.konnect-region }}" >> $GITHUB_ENV
 
         # Set other Terraform variables
-        echo "TF_VAR_config_file=${{ inputs.config }}" >> $GITHUB_ENV
+        echo "TF_VAR_config_file=${{ inputs.konnect-resources }}" >> $GITHUB_ENV
         echo "TF_VAR_gh_workspace_path=${{ github.workspace }}" >> $GITHUB_ENV
         echo "TF_VAR_team_name=${{ inputs.konnect-team-name }}" >> $GITHUB_ENV
 
     - name: Terraform Init
       shell: bash
       run: |
-        terraform init -input=false -upgrade
+        terraform init -input=false -upgrade \
+        -backend-config=config.s3.tfbackend \
+        -backend-config="bucket=${{ inputs.s3-bucket }}" \
+        -backend-config="region=${{ inputs.aws-region }}" \
       working-directory: ${{ github.action_path }}/terraform
 
     - name: Terraform Plan

@@ -12,6 +12,13 @@ on:
           - 'flight-operations-dev'
           - 'flight-operations-staging'
           - 'flight-operations-prod'
+      team_name:
+        description: 'Team name'
+        required: true
+        type: choice
+        default: 'flight-operations'
+        options:
+          - 'flight-operations'
         
 
 permissions:
@@ -31,7 +38,7 @@ jobs:
           url: ${{ vars.VAULT_ADDR }}
           token: ${{ secrets.VAULT_TOKEN }}
           secrets: |
-            ${{ vars.KONNECT_TEAM_NAME }}-kv/data/system-accounts/sa-${{ vars.KONNECT_TEAM_NAME }} token | SYSTEM_ACCOUNT_TOKEN ;
+            ${{ inputs.team_name }}-kv/data/system-accounts/sa-${{ inputs.team_name }} token | SYSTEM_ACCOUNT_TOKEN ;
 
 
       - name: Run composite action

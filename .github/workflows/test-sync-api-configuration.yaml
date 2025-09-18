@@ -2,6 +2,17 @@ name: Test sync-api-configuration (act)
 
 on:
   workflow_dispatch:
+    inputs:
+      control_plane_name:
+        description: 'Control Plane to deploy kong configuration to'
+        required: true
+        type: choice
+        default: 'flight-operations-dev'
+        options:
+          - 'flight-operations-dev'
+          - 'flight-operations-staging'
+          - 'flight-operations-prod'
+        
 
 permissions:
   contents: read
@@ -27,7 +38,7 @@ jobs:
         uses: ./.github/actions/sync-api-configuration
         with:
           openapi_spec: test/apis/flights/openapi.yaml
-          control_plane_name: flight-operations-dev
+          control_plane_name: ${{ inputs.control_plane_name }}
           system_account_token: ${{ steps.import-token.outputs.SYSTEM_ACCOUNT_TOKEN }}
         env:
           VAULT_ADDR: ${{ vars.VAULT_ADDR }}

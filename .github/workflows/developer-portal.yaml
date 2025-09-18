@@ -2,6 +2,15 @@ name: Developer Portal
 
 on:
   workflow_dispatch:
+    inputs:
+      action:
+        description: 'Action to perform'
+        required: true
+        type: choice
+        default: 'provision'
+        options:
+          - 'provision'
+          - 'destroy'
   push:
     branches:
       - main
@@ -51,7 +60,7 @@ jobs:
       - name: Provision Konnect Developer Portal resources
         uses: ./.github/actions/provision-konnect-resources
         with:
-          action: "provision"
+          action: ${{ inputs.action }}
           plan-only: "false"
           konnect-resources: ${{ env.TF_VAR_resources_path }}/config.yaml
           vault-address: ${{ env.VAULT_ADDR }}

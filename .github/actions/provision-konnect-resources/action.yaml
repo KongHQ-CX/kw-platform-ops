@@ -35,9 +35,6 @@ inputs:
     description: 'AWS region for S3'
     required: false
     default: 'eu-central-1'
-  s3-bucket:
-    description: 'S3 bucket name for Terraform state'
-    required: true
   konnect-region:
     description: "Konnect region"
     required: false
@@ -114,7 +111,7 @@ runs:
       run: |
         terraform init -input=false -upgrade \
         -backend-config=config.s3.tfbackend \
-        -backend-config="bucket=${{ inputs.s3-bucket }}" \
+        -backend-config="bucket=kw.konnect.team.resources.${{ inputs.konnect-team-name }}" \
         -backend-config="region=${{ inputs.aws-region }}" \
       working-directory: ${{ github.action_path }}/terraform
 

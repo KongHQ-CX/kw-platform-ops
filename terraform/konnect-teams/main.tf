@@ -1,7 +1,7 @@
 terraform {
   required_providers {
     konnect = {
-      source  = "kong/konnect"
+      source = "kong/konnect"
       version = "3.1.0"
     }
   }
@@ -9,8 +9,8 @@ terraform {
 
 locals {
   config_files = fileset("${var.resources_path}", "*.yaml")
-  teams = [
-    for file in local.config_files :
+  teams               = [
+    for file in local.config_files : 
     yamldecode(file("${var.resources_path}/${file}"))
   ]
   sanitized_team_names = { for team in local.teams : team.name => replace(lower(team.name), " ", "-") }
@@ -22,14 +22,15 @@ locals {
 ################################################################################
 
 resource "konnect_team" "this" {
-  for_each = local.teams_by_file
+  for_each = { for team in local.teams : team.name => team }
 
   description = lookup(each.value, "description", null)
-  labels = merge(lookup(each.value, "labels", {}), {
+  labels = merge(lookup(each.value, "labels", {
     "generated_by" = "terraform"
-  })
+  }))
   name = each.value.name
 }
+
 
 ################################################################################
 # STEP 2: CREATE THE KONNECT SYSTEM ACCOUNTS FOR EACH TEAM
@@ -39,8 +40,8 @@ module "system-account" {
 
   source = "./modules/system-account"
 
-  team_name         = local.sanitized_team_names[each.key]
-  team_entitlements = try(local.teams_by_file[each.key].entitlements, [])
+  team_name         = local.sanitized_team_names[each.value.name]
+  team_entitlements = try([for t in local.teams : t.entitlements if t.name == each.value.name][0], [])
   team_id           = each.value.id
 }
 
@@ -59,11 +60,10 @@ module "vault" {
 
   source = "./modules/vault"
 
-  team_name                  = local.sanitized_team_names[each.key]
-  system_account_secret_path = "system-accounts/sa-${local.sanitized_team_names[each.key]}"
-  system_account_token       = module.system-account[each.key].system_account_token
+  team_name                  = local.sanitized_team_names[each.value.name]
+  system_account_secret_path = "system-accounts/sa-${local.sanitized_team_names[each.value.name]}"
+  system_account_token       = module.system-account[each.value.name].system_account_token
 }
-
 
 ################################################################################
 # STEP 5: CREATE S3 BUCKETS FOR EACH TEAM TO STORE THEIR INDIVIDUAL STATES
@@ -71,15 +71,14 @@ module "vault" {
 
 # Create S3 bucket
 resource "aws_s3_bucket" "my_bucket" {
-  for_each = { for team in konnect_team.this : team.name => team }
-  bucket   = "kw.konnect.team.resources.${local.sanitized_team_names[each.value.name]}"
+  for_each = konnect_team.this
+  bucket = "kw.konnect.team.resources.${local.sanitized_team_names[each.value.name]}"
 
   tags = {
-    Name = "kw.konnect.team.resources.${local.sanitized_team_names[each.value.name]}"
+    Name        = "kw.konnect.team.resources.${local.sanitized_team_names[each.value.name]}"
   }
 }
 
 output "teams" {
   value = local.teams
 }
-

@@ -1,0 +1,34 @@
+name: Test sync-api-configuration (act)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sync-api-config-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Import system account Token from Vault
+        id: import-token
+        uses: hashicorp/vault-action@v2
+        with:
+          url: ${{ vars.VAULT_ADDR }}
+          token: ${{ secrets.VAULT_TOKEN }}
+          secrets: |
+            ${{ vars.KONNECT_TEAM_NAME }}-kv/data/system-accounts/sa-${{ vars.KONNECT_TEAM_NAME }} token | SYSTEM_ACCOUNT_TOKEN ;
+
+
+      - name: Run composite action
+        uses: ./.github/actions/sync-api-configuration
+        with:
+          openapi_spec: test/apis/flights/openapi.yaml
+          control_plane_name: flight-operations-dev
+          system_account_token: ${{ steps.import-token.outputs.SYSTEM_ACCOUNT_TOKEN }}
+        env:
+          VAULT_ADDR: ${{ vars.VAULT_ADDR }}
+          KONNECT_SERVER_URL: ${{ vars.KONNECT_SERVER_URL }}

@@ -1,6 +1,6 @@
 # Description: Makefile for setting up the project
 
-export VAULT_ADDR=http://localhost:8300
+export VAULT_ADDR=https://vault.kong-cx.com
 export VAULT_TOKEN=$(shell grep -o 'VAULT_TOKEN=\K.*' act.secrets)
 export GITHUB_ORG=$(shell grep -o 'GITHUB_ORG=\K.*' act.secrets)
 KIND_CLUSTER_NAME=konnect-platform-ops-demo

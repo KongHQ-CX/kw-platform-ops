@@ -2,6 +2,7 @@ terraform {
   required_providers {
     konnect = {
       source = "kong/konnect"
+      version = "3.1.0"
     }
   }
 }
@@ -81,4 +82,3 @@ resource "aws_s3_bucket" "my_bucket" {
 output "teams" {
   value = local.teams
 }
-

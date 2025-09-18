@@ -1,19 +1,18 @@
 terraform {
   required_providers {
-    konnect-beta = {
-      source = "kong/konnect-beta"
+    konnect = {
+      source  = "kong/konnect"
+      version = "3.1.0"
     }
   }
 }
 
 resource "konnect_api" "this" {
-  provider = konnect-beta
 
   # Required fields
   name = var.name
 
   # Optional fields
-  # deprecated   = var.deprecated
   description  = var.description
   labels       = var.labels
   slug         = var.slug
@@ -25,9 +24,8 @@ resource "konnect_api_publication" "this" {
 
   for_each = { for portal in var.portals : portal.id => portal }
 
-  provider = konnect-beta
   api_id = konnect_api.this.id
-  
-  portal_id                  = each.value.id
-  visibility                 = lookup(each.value, "visibility", "private")
+
+  portal_id  = each.value.id
+  visibility = lookup(each.value, "visibility", "private")
 }

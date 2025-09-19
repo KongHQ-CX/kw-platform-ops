@@ -15,6 +15,10 @@ inputs:
     description: "Path to the directory containing the plugins owned by the API team/repo"
     required: false
     default: ""
+  konnect_server_url:
+    description: "Kong Konnect Server URL"
+    required: false
+    default: "https://eu.api.konghq.com"
 
 runs:
   using: 'composite'
@@ -144,7 +148,7 @@ runs:
       shell: bash
       run: |
         deck gateway dump \
-          --konnect-addr="${{ env.KONNECT_SERVER_URL }}" \
+          --konnect-addr="${{ inputs.konnect_server_url }}" \
           --konnect-token="${{ inputs.system_account_token }}" \
           --konnect-control-plane-name="${{ inputs.control_plane_name }}" -o kong_backup_${{ env.NOW }}.yaml
       working-directory: ${{ github.workspace }}
@@ -153,7 +157,7 @@ runs:
       shell: bash
       run: |
         deck gateway diff kong.yaml  \
-          --konnect-addr="${{ env.KONNECT_SERVER_URL }}" \
+          --konnect-addr="${{ inputs.konnect_server_url }}" \
           --konnect-token="${{ inputs.system_account_token }}" \
           --konnect-control-plane-name="${{ inputs.control_plane_name }}" > kong_diff_${{ env.NOW }}.txt
           # Show diff output
@@ -164,7 +168,7 @@ runs:
       shell: bash
       run: |
         deck gateway sync kong.yaml  \
-          --konnect-addr="${{ env.KONNECT_SERVER_URL }}" \
+          --konnect-addr="${{ inputs.konnect_server_url }}" \
           --konnect-token="${{ inputs.system_account_token }}" \
           --konnect-control-plane-name="${{ inputs.control_plane_name }}"
       working-directory: ${{ github.workspace }}
@@ -173,7 +177,7 @@ runs:
       shell: bash
       run: |
         deck gateway dump \
-          --konnect-addr="${{ env.KONNECT_SERVER_URL }}" \
+          --konnect-addr="${{ inputs.konnect_server_url }}" \
           --konnect-token="${{ inputs.system_account_token }}" \
           --konnect-control-plane-name="${{ inputs.control_plane_name }}" -o kong_current_${{ env.NOW }}.yaml
       working-directory: ${{ github.workspace }}

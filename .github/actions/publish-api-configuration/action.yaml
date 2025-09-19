@@ -81,7 +81,10 @@ runs:
 
     - name: Convert OpenAPI Specification to Kong Gateway configuration
       shell: bash
-      run: cat ${{ github.workspace }}/${{ inputs.openapi_spec }} | deck file openapi2kong > kong.yaml
+      run: |
+        cat ${{ github.workspace }}/${{ inputs.openapi_spec }} | deck file openapi2kong > kong.yaml
+        cat kong.yaml
+      
 
     ####################################
     # Customize the Kong Gateway configuration by adding plugins defined by the API team/repo
@@ -97,6 +100,7 @@ runs:
             fi
           done
         fi
+        cat kong.yaml
       working-directory: ${{ github.workspace }}
     
     #####################################
@@ -118,6 +122,7 @@ runs:
           ${{ github.action_path }}/plugins/openid-connect.yaml \
           ${{ github.action_path }}/plugins/oas-validation.yaml \
           ${{ github.action_path }}/plugins/rate-limiting.yaml -o kong.yaml
+          cat kong.yaml
       working-directory: ${{ github.workspace }}
 
     - name: Add namespace to Kong Gateway configuration if required

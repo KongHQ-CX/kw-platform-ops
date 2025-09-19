@@ -74,8 +74,8 @@ locals {
     id   = "dummy-team-id"
     name = var.team_name
     } : {
-    id   = jsondecode(data.terracurl_request.fetch_team[0].response).data[0].id
-    name = jsondecode(data.terracurl_request.fetch_team[0].response).data[0].name
+    id   = jsondecode(data.terracurl_request.fetch_team.response).data[0].id
+    name = jsondecode(data.terracurl_request.fetch_team.response).data[0].name
   }
 }
 
@@ -134,7 +134,7 @@ module "control_planes" {
   cluster_type  = lookup(each.value, "cluster_type", "CLUSTER_TYPE_HYBRID")
   auth_type     = lookup(each.value, "auth_type", "pki_client_certs")
 
-  team = jsondecode(data.terracurl_request.fetch_team[0].response).data[0]
+  team = jsondecode(data.terracurl_request.fetch_team.response).data[0]
 }
 
 module "apis" {

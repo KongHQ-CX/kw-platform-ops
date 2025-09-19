@@ -88,7 +88,6 @@ locals {
 }
 
 data "terracurl_request" "fetch_team" {
-  count  = var.konnect_access_token == "dummy" ? 0 : 1
   name   = "products"
   url    = "https://global.api.konghq.com/v3/teams?filter[name][eq]=${var.team_name}"
   method = "GET"

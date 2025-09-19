@@ -88,10 +88,10 @@ runs:
     ####################################
     - name: Add plugins owned by the repository that calls this composite action
       shell: bash
-      if: ${{ inputs.custom_plugins_path != '' }}
+      if: ${{ inputs.api_team_plugins_path != '' }}
       run: |
-        if [ -d "${{ github.workspace }}/${{ inputs.custom_plugins_path }}" ]; then
-          for plugin_file in ${{ github.workspace }}/${{ inputs.custom_plugins_path }}/*.yaml; do
+        if [ -d "${{ github.workspace }}/${{ inputs.api_team_plugins_path }}" ]; then
+          for plugin_file in ${{ github.workspace }}/${{ inputs.api_team_plugins_path }}/*.yaml; do
             if [ -f "$plugin_file" ]; then
               cat kong.yaml | deck file add-plugins "$plugin_file" -o kong.yaml
             fi

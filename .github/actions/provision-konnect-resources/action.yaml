@@ -42,7 +42,7 @@ inputs:
   konnect-server-url:
     description: 'Konnect server URL (defaults to global endpoint)'
     required: false
-    default: 'https://global.api.konghq.com'
+    default: 'https://eu.api.konghq.com'
   konnect-token:
     description: 'Konnect API token'
     required: true

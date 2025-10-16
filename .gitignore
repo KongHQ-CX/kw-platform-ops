@@ -71,9 +71,11 @@ tfplan
 .vars*
 export-creds.sh
 
-.bmad-core/
-.bmad-infrastructure-devops/
 .vscode/
 docs/
 .github/chatmodes/
 TODO.md
+# BMAD (local only)
+.bmad-*/
+docs/
+AGENTS.md

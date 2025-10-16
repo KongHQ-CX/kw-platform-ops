@@ -4,6 +4,10 @@ terraform {
       source  = "kong/konnect"
       version = "3.1.0"
     }
+    konnect-beta = {
+      source  = "Kong/konnect-beta"
+      version = "0.11.1"
+    }
     terracurl = {
       source  = "devops-rob/terracurl"
       version = "1.0.1"
@@ -40,6 +44,7 @@ locals {
   portal_logos                   = [for resource in local.resources : resource if resource.type == "konnect.portal_logo"]
   portal_favicons                = [for resource in local.resources : resource if resource.type == "konnect.portal_favicon"]
   portal_product_versions        = [for resource in local.resources : resource if resource.type == "konnect.portal_product_version"]
+  dashboards                     = [for resource in local.resources : resource if resource.type == "konnect.dashboard"]
   realms                         = [for resource in local.resources : resource if resource.type == "konnect.realm"]
   centralized_consumers          = [for resource in local.resources : resource if resource.type == "konnect.centralized_consumer"]
   centralized_consumer_keys      = [for resource in local.resources : resource if resource.type == "konnect.centralized_consumer_key"]
@@ -382,6 +387,24 @@ module "portal_product_versions" {
   notify_developers                = lookup(each.value, "notify_developers", null)
 }
 
+module "dashboards" {
+  source = "./modules/dashboard"
+  providers = {
+    konnect-beta = konnect-beta
+  }
+
+  for_each = {
+    for dashboard in local.dashboards :
+    coalesce(lookup(dashboard, "slug", null), dashboard.name) => dashboard
+  }
+
+  name       = each.value.name
+  labels     = lookup(each.value, "labels", {})
+  definition = each.value.definition
+
+  depends_on = [module.developer_portals]
+}
+
 ################################################################################
 # REALMS AND CENTRALIZED CONSUMERS
 ################################################################################
@@ -679,14 +702,14 @@ module "api_versions" {
 #   }
 # }
 
- module "api_publications" {
-   source = "./modules/api_publication"
+module "api_publications" {
+  source = "./modules/api_publication"
 
-   for_each = { for pub in local.api_publications : "${pub.api_name}-${pub.portal_name}" => pub }
+  for_each = { for pub in local.api_publications : "${pub.api_name}-${pub.portal_name}" => pub }
 
-   api_id                     = module.apis["${each.value.api_name}-${lookup(each.value, "api_version", "")}"].id
-   portal_id                  = module.developer_portals[each.value.portal_name].id
-   auth_strategy_ids          = lookup(each.value, "auth_strategy_ids", null) != null ? [for name in each.value.auth_strategy_ids : module.application_auth_strategy[name].id] : null
-   auto_approve_registrations = lookup(each.value, "auto_approve_registrations", null)
-   visibility                 = lookup(each.value, "visibility", "private")
- }
+  api_id                     = module.apis["${each.value.api_name}-${lookup(each.value, "api_version", "")}"].id
+  portal_id                  = module.developer_portals[each.value.portal_name].id
+  auth_strategy_ids          = lookup(each.value, "auth_strategy_ids", null) != null ? [for name in each.value.auth_strategy_ids : module.application_auth_strategy[name].id] : null
+  auto_approve_registrations = lookup(each.value, "auto_approve_registrations", null)
+  visibility                 = lookup(each.value, "visibility", "private")
+}

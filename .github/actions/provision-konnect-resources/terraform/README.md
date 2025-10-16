@@ -33,6 +33,12 @@ The following resource types are supported via locals filtering and modules:
   - YAML fields:
     - portal_name (string) → resolves portal_id
     - name (string) → team name (must exist in Konnect)
+- konnect.dashboard → module "dashboards" (provisions via `kong/konnect-beta`)
+  - YAML fields:
+    - name (string) → name
+    - definition (map) → definition (pass-through, must satisfy schema tiles/preset_filters expectations)
+    - labels (map[string], optional) → labels
+    - slug (string, optional) → used as stable key for `for_each` but not sent to provider
 
 Note: portal customization, page and snippet can be added later; initial thin slice focuses on the essentials.
 

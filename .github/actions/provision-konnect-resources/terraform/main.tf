@@ -671,8 +671,8 @@ module "api_documents" {
 
   for_each = { for doc in local.api_documents : "${doc.api_name}-${doc.slug}" => doc }
 
-  api_id             = module.apis["${each.value.api_name}-${lookup(each.value, "api_version", "")}"].id
-  content            = each.value.content
+  api_id             = module.apis["${each.value.api_name}-${each.value.version}"].id
+  content            = try(file("${var.gh_workspace_path}/${each.value.content.file}"), each.value.content)
   parent_document_id = lookup(each.value, "parent_document_id", null)
   slug               = each.value.slug
   status             = lookup(each.value, "status", "unpublished")

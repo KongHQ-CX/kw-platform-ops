@@ -706,7 +706,7 @@ module "api_publications" {
 
   for_each = { for pub in local.api_publications : "${pub.api_name}-${pub.portal_name}" => pub }
 
-  api_id                     = module.apis["${each.value.api_name}-${lookup(each.value, "api_version", "")}"].id
+  api_id                     = module.apis["${each.value.api_name}-${each.value.version}"].id
   portal_id                  = module.developer_portals[each.value.portal_name].id
   auth_strategy_ids          = lookup(each.value, "auth_strategy_ids", null) != null ? [for name in each.value.auth_strategy_ids : module.application_auth_strategy[name].id] : null
   auto_approve_registrations = lookup(each.value, "auto_approve_registrations", null)

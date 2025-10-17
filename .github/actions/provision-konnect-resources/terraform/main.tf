@@ -673,7 +673,6 @@ module "api_documents" {
 
   api_id             = module.apis["${each.value.api_name}-${lookup(each.value, "api_version", "")}"].id
   content            = each.value.content
-  labels             = lookup(each.value, "labels", {})
   parent_document_id = lookup(each.value, "parent_document_id", null)
   slug               = each.value.slug
   status             = lookup(each.value, "status", "unpublished")

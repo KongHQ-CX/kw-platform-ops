@@ -666,19 +666,19 @@ module "api_versions" {
   spec_content = try(file("${var.gh_workspace_path}/${each.value.spec_content.file}"), each.value.spec_content.content)
 }
 
-# module "api_documents" {
-#   source = "./modules/api_document"
+module "api_documents" {
+  source = "./modules/api_document"
 
-#   for_each = { for doc in local.api_documents : "${doc.api_name}-${doc.slug}" => doc }
+  for_each = { for doc in local.api_documents : "${doc.api_name}-${doc.slug}" => doc }
 
-#   api_id             = module.apis["${each.value.api_name}-${lookup(each.value, "api_version", "")}"].id
-#   content            = each.value.content
-#   labels             = lookup(each.value, "labels", {})
-#   parent_document_id = lookup(each.value, "parent_document_id", null)
-#   slug               = each.value.slug
-#   status             = lookup(each.value, "status", "unpublished")
-#   title              = lookup(each.value, "title", null)
-# }
+  api_id             = module.apis["${each.value.api_name}-${lookup(each.value, "api_version", "")}"].id
+  content            = each.value.content
+  labels             = lookup(each.value, "labels", {})
+  parent_document_id = lookup(each.value, "parent_document_id", null)
+  slug               = each.value.slug
+  status             = lookup(each.value, "status", "unpublished")
+  title              = lookup(each.value, "title", null)
+}
 
 # module "api_specifications" {
 #   source = "./modules/api_specification"

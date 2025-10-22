@@ -1,0 +1,30 @@
+image:
+  repository: kong/kong-gateway
+  tag: "3.11"
+
+secretVolumes:
+- kong-cluster-cert
+
+manager:
+  enabled: false
+
+admin:
+  enabled: false
+
+env:
+  log_level: "info"
+  role: data_plane
+  database: "off"
+  cluster_mtls: pki
+  lua_ssl_trusted_certificate: system
+  konnect_mode: "on"
+  vitals: "off"
+  tracing_instrumentations: "all"
+  tracing_sampling_rate: "1.0"
+  status_listen: "0.0.0.0:8100 http2"
+  port_maps: "80:8000, 443:8443, 8100:8100"
+  event_hooks_enabled: "off"
+
+ingressController:
+  enabled: false
+  installCRDs: false

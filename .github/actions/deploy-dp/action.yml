@@ -25,10 +25,31 @@ inputs:
   control-plane-name:
     description: Control Plane name
     required: true
+  kube-context:
+    description: Kubernetes context to use for deployment
+    required: false
+    default: orbstack
   environment:
     description: Deployment environment (e.g., dev, staging, prod)
     required: false
     default: dev
+  aws-access-key-id:
+    description: AWS Access Key ID for AWS authentication
+    required: true
+  aws-secret-access-key:
+    description: AWS Secret Access Key for AWS authentication
+    required: true
+  aws-session-token:
+    description: AWS Session Token for AWS authentication
+    required: false
+  aws-region:
+    description: 'AWS region for S3'
+    required: false
+    default: 'eu-central-1'
+  cluster-name:
+    description: 'EKS Cluster Name'
+    required: false
+    default: 'konnect-301-eks-wDoLaiGY'
 runs:
   using: composite
   steps:
@@ -45,15 +66,42 @@ runs:
       with:
         version: latest
 
+    # Install AWS CLI
+    - name: Install AWS CLI
+      shell: bash
+      run: |
+        if ! command -v aws &> /dev/null; then
+          echo "Installing AWS CLI..."
+          curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "/tmp/awscliv2.zip"
+          unzip -q /tmp/awscliv2.zip -d /tmp
+          sudo /tmp/aws/install
+          rm -rf /tmp/awscliv2.zip /tmp/aws
+        fi
+        aws --version
+
+    # AWS Authentication
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ inputs.aws-access-key-id }}
+        aws-secret-access-key: ${{ inputs.aws-secret-access-key }}
+        aws-session-token: ${{ inputs.aws-session-token }}
+        aws-region: ${{ inputs.aws-region }}
+
     - name: Set up env variables
       shell: bash
       run: |
+
         echo "NAMESPACE=kong-${{ inputs.control-plane-name }}" >> $GITHUB_ENV
-        echo "KUBECONFIG=/.kube/config" >> $GITHUB_ENV
+        echo "KUBECONFIG=/tmp/kubeconfig" >> $GITHUB_ENV
 
     - name: kubectl use context
       shell: bash
-      run: kubectl config use-context orbstack
+      run: |
+        aws eks update-kubeconfig \
+          --name ${{ inputs.cluster-name }} \
+          --region ${{ inputs.aws-region }} \
+          --kubeconfig $KUBECONFIG
 
     - name: Add Kong Helm Repository
       shell: bash

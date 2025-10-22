@@ -3,11 +3,11 @@ name: Onboard Konnect Teams
 on:
   workflow_dispatch:
     inputs:
-      kong_image_repo:
+      kong-image-repo:
         description: Kong image repository (e.g., kong/kong-gateway)
         required: true
         default: kong/kong-gateway
-      kong_image_tag:
+      kong-image-tag:
         description: Kong image tag (e.g., 3.8)
         required: true
         default: "3.8"
@@ -49,8 +49,8 @@ jobs:
       - name: Deploy Data Plane
         uses: ./.github/actions/deploy-dp
         with:
-          kong_image_repo: ${{ inputs.kong_image_repo || 'kong/kong-gateway' }}
-          kong_image_tag: ${{ inputs.kong_image_tag || '3.11' }}
+          kong-image-repo: ${{ inputs.kong-image-repo || 'kong/kong-gateway' }}
+          kong-image-tag: ${{ inputs.kong-image-tag || '3.11' }}
           team-name: "flight-operations"
           control-plane-clustering-cert: $CP_CLUSTERING_CERT
           control-plane-clustering-cert-key: $CP_CLUSTERING_CERT_KEY

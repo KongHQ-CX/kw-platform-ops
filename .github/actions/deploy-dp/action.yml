@@ -10,6 +10,21 @@ inputs:
   team-name:
     description: Name of the Konnect Team to onboard the Data Plane to
     required: true
+  control-plane-clustering-cert:
+    description: Control Plane clustering certificate (PEM format)
+    required: true
+  control-plane-clustering-cert-key:
+    description: Control Plane clustering certificate key (PEM format)
+    required: true
+  control-plane-endpoint:
+    description: Control Plane endpoint URL
+    required: true
+  telemetry-endpoint:
+    description: Telemetry endpoint URL
+    required: true
+  control-plane-name:
+    description: Control Plane name
+    required: true
   environment:
     description: Deployment environment (e.g., dev, staging, prod)
     required: false
@@ -33,32 +48,8 @@ runs:
     - name: Set up env variables
       shell: bash
       run: |
-        echo "NAMESPACE=kong-${{ inputs.team-name}}-${{ inputs.environment }}" >> $GITHUB_ENV
+        echo "NAMESPACE=kong-${{ inputs.control-plane-name }}" >> $GITHUB_ENV
         echo "KUBECONFIG=/.kube/config" >> $GITHUB_ENV
-
-    - name: Import Secrets
-      id: import-secrets
-      uses: hashicorp/vault-action@v2
-      with:
-        url: ${{ env.VAULT_ADDR }}
-        token: ${{ env.VAULT_TOKEN }}
-        secrets: |
-          ${{ inputs.team-name }}-kv/data/control-planes/${{ inputs.team-name }}-${{ inputs.environment }} clustering_cert | CLUSTERING_CERT ;
-          ${{ inputs.team-name }}-kv/data/control-planes/${{ inputs.team-name }}-${{ inputs.environment }} clustering_cert_key | CLUSTERING_CERT_KEY ;
-          ${{ inputs.team-name }}-kv/data/control-planes/${{ inputs.team-name }}-${{ inputs.environment }} control_plane_endpoint | CP_ENDPOINT ;
-          ${{ inputs.team-name }}-kv/data/control-planes/${{ inputs.team-name }}-${{ inputs.environment }} telemetry_endpoint | TELEMETRY_ENDPOINT ;
-          ${{ inputs.team-name }}-kv/data/control-planes/${{ inputs.team-name }}-${{ inputs.environment }} name | CP_NAME ;
-          ${{ inputs.team-name }}-kv/data/control-planes/${{ inputs.team-name }}-${{ inputs.environment }} id | CP_ID ;
-
-    - name: debug info
-      shell: bash
-      run: |
-        echo "CLUSTERING_CERT: ${CLUSTERING_CERT:+[set]}"
-        echo "CLUSTERING_CERT_KEY: ${CLUSTERING_CERT_KEY:+[set]}"
-        echo "CP_ENDPOINT: $CP_ENDPOINT"
-        echo "TELEMETRY_ENDPOINT: $TELEMETRY_ENDPOINT"
-        echo "CP_NAME: $CP_NAME"
-        echo "CP_ID: $CP_ID"
 
     - name: kubectl use context
       shell: bash
@@ -86,17 +77,17 @@ runs:
           namespace: $NAMESPACE
         type: kubernetes.io/tls
         data:
-          tls.crt: $(echo "$CLUSTERING_CERT" | base64 -w 0)
-          tls.key: $(echo "$CLUSTERING_CERT_KEY" | base64 -w 0)
+          tls.crt: $(echo "${{ inputs.control-plane-clustering-cert }}" | base64 -w 0)
+          tls.key: $(echo "${{ inputs.control-plane-clustering-cert-key }}" | base64 -w 0)
         EOF
 
     - name: Deploy Kong Data Plane
       shell: bash
       run: |
         # Extract control plane and telemetry endpoints from the control plane info
-        CONTROL_PLANE_ENDPOINT=$(echo "$CP_ENDPOINT" | sed 's|https://||')
-        TELEMETRY_ENDPOINT=$(echo "$TELEMETRY_ENDPOINT" | sed 's|https://||')
-        CONTROL_PLANE_NAME=$(echo "$CP_NAME" | tr '[:upper:]' '[:lower:]' | sed 's/[ _]/-/g')
+        CONTROL_PLANE_ENDPOINT=$(echo "${{ inputs.control-plane-endpoint }}" | sed 's|https://||')
+        TELEMETRY_ENDPOINT=$(echo "${{ inputs.telemetry-endpoint }}" | sed 's|https://||')
+        CONTROL_PLANE_NAME=$(echo "${{ inputs.control-plane-name }}" | tr '[:upper:]' '[:lower:]' | sed 's/[ _]/-/g')
 
         echo "Control Plane Endpoint: $CONTROL_PLANE_ENDPOINT"
         echo "Telemetry Endpoint: $TELEMETRY_ENDPOINT"

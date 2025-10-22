@@ -11,6 +11,10 @@ on:
         description: Kong image tag (e.g., 3.8)
         required: true
         default: "3.8"
+      environment:
+        description: Deployment environment (e.g., dev, staging, prod)
+        required: false
+        default: dev
 
 env:
   TF_VAR_resources_path: ${{ github.workspace }}/teams
@@ -29,10 +33,28 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Import Secrets
+        id: import-secrets
+        uses: hashicorp/vault-action@v2
+        with:
+          url: ${{ env.VAULT_ADDR }}
+          token: ${{ env.VAULT_TOKEN }}
+          secrets: |
+            ${{ vars.KONNECT_TEAM_NAME }}-kv/data/control-planes/${{ vars.KONNECT_TEAM_NAME }}-${{ inputs.environment }} clustering_cert | CP_CLUSTERING_CERT ;
+            ${{ vars.KONNECT_TEAM_NAME }}-kv/data/control-planes/${{ vars.KONNECT_TEAM_NAME }}-${{ inputs.environment }} clustering_cert_key | CP_CLUSTERING_CERT_KEY ;
+            ${{ vars.KONNECT_TEAM_NAME }}-kv/data/control-planes/${{ vars.KONNECT_TEAM_NAME }}-${{ inputs.environment }} control_plane_endpoint | CP_ENDPOINT ;
+            ${{ vars.KONNECT_TEAM_NAME }}-kv/data/control-planes/${{ vars.KONNECT_TEAM_NAME }}-${{ inputs.environment }} telemetry_endpoint | CP_TELEMETRY_ENDPOINT ;
+            ${{ vars.KONNECT_TEAM_NAME }}-kv/data/control-planes/${{ vars.KONNECT_TEAM_NAME }}-${{ inputs.environment }} name | CP_NAME ;
+
       - name: Deploy Data Plane
         uses: ./.github/actions/deploy-dp
         with:
           kong_image_repo: ${{ inputs.kong_image_repo || 'kong/kong-gateway' }}
           kong_image_tag: ${{ inputs.kong_image_tag || '3.11' }}
           team-name: "flight-operations"
-          environment: "dev"
+          control-plane-clustering-cert: $CP_CLUSTERING_CERT
+          control-plane-clustering-cert-key: $CP_CLUSTERING_CERT_KEY
+          control-plane-endpoint: $CP_ENDPOINT
+          telemetry-endpoint: $CP_TELEMETRY_ENDPOINT
+          control-plane-name: $CP_NAME
+          environment: ${{ inputs.environment  }}

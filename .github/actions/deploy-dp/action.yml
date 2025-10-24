@@ -1,0 +1,164 @@
+name: deploy-dp
+description: Deploy a Kong Data Plane to Kubernetes using Helm, with secrets from Vault
+inputs:
+  kong-image-repo:
+    description: Kong image repository (e.g., kong/kong-gateway)
+    required: true
+  kong-image-tag:
+    description: Kong image tag (e.g., 3.8)
+    required: true
+  team-name:
+    description: Name of the Konnect Team to onboard the Data Plane to
+    required: true
+  control-plane-clustering-cert:
+    description: Control Plane clustering certificate (PEM format)
+    required: true
+  control-plane-clustering-cert-key:
+    description: Control Plane clustering certificate key (PEM format)
+    required: true
+  control-plane-endpoint:
+    description: Control Plane endpoint URL
+    required: true
+  telemetry-endpoint:
+    description: Telemetry endpoint URL
+    required: true
+  control-plane-name:
+    description: Control Plane name
+    required: true
+  kube-context:
+    description: Kubernetes context to use for deployment
+    required: false
+    default: orbstack
+  environment:
+    description: Deployment environment (e.g., dev, staging, prod)
+    required: false
+    default: dev
+  aws-access-key-id:
+    description: AWS Access Key ID for AWS authentication
+    required: true
+  aws-secret-access-key:
+    description: AWS Secret Access Key for AWS authentication
+    required: true
+  aws-session-token:
+    description: AWS Session Token for AWS authentication
+    required: false
+  aws-region:
+    description: 'AWS region for S3'
+    required: false
+    default: 'eu-central-1'
+  cluster-name:
+    description: 'EKS Cluster Name'
+    required: false
+    default: 'konnect-301-eks-wDoLaiGY'
+runs:
+  using: composite
+  steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Helm
+      uses: azure/setup-helm@v4
+      with:
+        version: latest
+
+    - name: Set up kubectl
+      uses: azure/setup-kubectl@v4
+      with:
+        version: latest
+
+    # Install AWS CLI
+    - name: Install AWS CLI
+      shell: bash
+      run: |
+        if ! command -v aws &> /dev/null; then
+          echo "Installing AWS CLI..."
+          curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "/tmp/awscliv2.zip"
+          unzip -q /tmp/awscliv2.zip -d /tmp
+          sudo /tmp/aws/install
+          rm -rf /tmp/awscliv2.zip /tmp/aws
+        fi
+        aws --version
+
+    # AWS Authentication
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ inputs.aws-access-key-id }}
+        aws-secret-access-key: ${{ inputs.aws-secret-access-key }}
+        aws-session-token: ${{ inputs.aws-session-token }}
+        aws-region: ${{ inputs.aws-region }}
+
+    - name: Set up env variables
+      shell: bash
+      run: |
+
+        echo "NAMESPACE=kong-${{ inputs.control-plane-name }}" >> $GITHUB_ENV
+        echo "KUBECONFIG=/tmp/kubeconfig" >> $GITHUB_ENV
+
+    - name: kubectl use context
+      shell: bash
+      run: |
+        aws eks update-kubeconfig \
+          --name ${{ inputs.cluster-name }} \
+          --region ${{ inputs.aws-region }} \
+          --kubeconfig $KUBECONFIG
+
+    - name: Add Kong Helm Repository
+      shell: bash
+      run: |
+        helm repo add kong https://charts.konghq.com
+        helm repo update
+
+    - name: Create Kong namespace if not exists
+      shell: bash
+      run: |
+        kubectl create namespace "$NAMESPACE" --dry-run=client -o yaml | kubectl apply -f -
+
+    - name: Create Kong clustering secrets if required
+      shell: bash
+      run: |
+        kubectl apply -f - <<EOF
+        apiVersion: v1
+        kind: Secret
+        metadata:
+          name: kong-cluster-cert
+          namespace: $NAMESPACE
+        type: kubernetes.io/tls
+        data:
+          tls.crt: $(echo "${{ inputs.control-plane-clustering-cert }}" | base64 -w 0)
+          tls.key: $(echo "${{ inputs.control-plane-clustering-cert-key }}" | base64 -w 0)
+        EOF
+
+    - name: Deploy Kong Data Plane
+      shell: bash
+      run: |
+        # Extract control plane and telemetry endpoints from the control plane info
+        CONTROL_PLANE_ENDPOINT=$(echo "${{ inputs.control-plane-endpoint }}" | sed 's|https://||')
+        TELEMETRY_ENDPOINT=$(echo "${{ inputs.telemetry-endpoint }}" | sed 's|https://||')
+        CONTROL_PLANE_NAME=$(echo "${{ inputs.control-plane-name }}" | tr '[:upper:]' '[:lower:]' | sed 's/[ _]/-/g')
+
+        echo "Control Plane Endpoint: $CONTROL_PLANE_ENDPOINT"
+        echo "Telemetry Endpoint: $TELEMETRY_ENDPOINT"
+        echo "Control Plane Name: $CONTROL_PLANE_NAME"
+
+        # Verify all required inputs are set
+        if [ "$CONTROL_PLANE_ENDPOINT" = "null" ] || [ "$TELEMETRY_ENDPOINT" = "null" ]; then
+          echo "Missing required input(s)"
+          echo "Control Plane Endpoint: $CONTROL_PLANE_ENDPOINT"
+          echo "Telemetry Endpoint: $TELEMETRY_ENDPOINT"
+          exit 1
+        fi
+
+        # Setup Data Plane node
+        helm upgrade --install dp kong/kong \
+          -n "$NAMESPACE" \
+          --values "${{ github.action_path }}/k8s/kong-dp/values.yaml" \
+          --set env.image.repository=${{ inputs.kong-image-repo }} \
+          --set env.image.tag=${{ inputs.kong-image-tag }} \
+          --set replicaCount="1" \
+          --set env.cluster_control_plane=$CONTROL_PLANE_ENDPOINT:443 \
+          --set env.cluster_server_name=$CONTROL_PLANE_ENDPOINT \
+          --set env.cluster_telemetry_endpoint=$TELEMETRY_ENDPOINT:443 \
+          --set env.cluster_telemetry_server_name=$TELEMETRY_ENDPOINT \
+          --set env.cluster_cert=/etc/secrets/kong-cluster-cert/tls.crt \
+          --set env.cluster_cert_key=/etc/secrets/kong-cluster-cert/tls.key

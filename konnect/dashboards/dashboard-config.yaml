@@ -1,0 +1,50 @@
+metadata:
+  format_version: "1.0.0"
+  type: konnect.team.resources
+  team: dashboard-ops
+  region: eu
+  description: Sample manifest exercising konnect.dashboard schema
+
+resources:
+  - type: konnect.dashboard
+    name: "kongair-observability"
+    labels:
+      scope: "internal"
+      owner: "platform"
+    definition:
+      preset_filters:
+        - field: realm
+          operator: not_empty
+          value: '{"match": "production"}'
+      tiles:
+        - chart:
+            type: chart
+            layout:
+              position:
+                col: 0
+                row: 0
+              size:
+                cols: 6
+                rows: 6
+            definition:
+              chart:
+                donut:
+                  chart_title: KongAir Requests by API Product
+                  type: donut
+              query:
+                api_usage:
+                  datasource: api_usage
+                  dimensions:
+                    - api_product
+                  filters:
+                    - field: status_code_grouped
+                      operator: not_in
+                      value: '{"values":["5XX"]}'
+                  granularity: hourly
+                  metrics:
+                    - kong_latency_p95
+                  time_range:
+                    relative:
+                      time_range: 7d
+                      type: relative
+                      tz: Etc/UTC

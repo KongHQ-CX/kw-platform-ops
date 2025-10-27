@@ -708,7 +708,8 @@ module "api_publications" {
 
   api_id                     = module.apis["${each.value.api_name}-${each.value.version}"].id
   portal_id                  = lookup(each.value, "portal_id", null)
-  auth_strategy_ids          = lookup(each.value, "auth_strategy_ids", null) != null ? [for name in each.value.auth_strategy_ids : module.application_auth_strategy[name].id] : null
+  #auth_strategy_ids          = lookup(each.value, "auth_strategy_ids", null) != null ? [for name in each.value.auth_strategy_ids : module.application_auth_strategy[name].id] : null
+  auth_strategy_ids          = lookup(each.value, "auth_strategy_ids", null)
   auto_approve_registrations = lookup(each.value, "auto_approve_registrations", null)
   visibility                 = lookup(each.value, "visibility", "private")
 }

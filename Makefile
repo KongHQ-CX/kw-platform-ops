@@ -40,9 +40,12 @@ clean: stop ## Clean everything up
 	@rm -rf act.secrets
 	@rm -rf .tmp
 
+test-validator: ## Run provisioner manifest validation checks
+	@./test/provisioning/validate-config_test.sh
+
 help: ## Show this help
 	@echo "Available targets:"
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make <target>\n\n"} \
 	/^[a-zA-Z_-]+:.*##/ { printf "  %-15s %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
 
-.PHONY: prepare actrc prep-act-secrets docker vault-secrets vault-pki clean stop check-deps
+.PHONY: prepare actrc prep-act-secrets docker vault-secrets vault-pki clean stop check-deps test-validator

@@ -1,0 +1,8 @@
+metadata:
+  format_version: "1.0.0"
+  type: konnect.team.resources
+  team: dashboard-ops
+
+resources:
+  - type: konnect.dashboard
+    name: missing-definition

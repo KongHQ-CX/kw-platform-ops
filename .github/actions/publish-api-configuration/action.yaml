@@ -37,7 +37,8 @@ runs:
     - name: Install kongctl CLI
       shell: bash
       run: |
-        curl -sL https://github.com/Kong/kongctl/releases/download/v0.7.0/kongctl_linux_amd64.zip -o /tmp/kongctl_linux_amd64.zip
+        curl -fsSL https://github.com/Kong/kongctl/releases/download/v0.7.0/kongctl_linux_amd64.zip -o /tmp/kongctl_linux_amd64.zip
+        echo "834285eb718d400684e8e26ee60cd6985e31f74c954c86cc3e7bf3d800e0e8a4  /tmp/kongctl_linux_amd64.zip" | sha256sum --check
         unzip /tmp/kongctl_linux_amd64.zip -d /tmp/kongctl
         sudo mv /tmp/kongctl/kongctl /usr/local/bin/
         kongctl version --full
@@ -187,6 +188,10 @@ runs:
             _deck:
               files:
                 - "kong.yaml"
+              flags:
+                - "--select-tag=${{ env.DECK_API_NAME }}"
+                - "--select-tag=${{ env.DECK_CONFIG_OWNER }}"
+                - "--select-tag=${{ env.DECK_ORGANIZATION }}"
         EOF
       working-directory: ${{ github.workspace }}
 

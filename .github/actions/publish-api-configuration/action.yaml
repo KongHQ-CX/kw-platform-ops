@@ -34,6 +34,14 @@ runs:
         sudo mv deck /usr/local/bin/
         deck version
 
+    - name: Install kongctl CLI
+      shell: bash
+      run: |
+        curl -sL https://github.com/Kong/kongctl/releases/download/v0.7.0/kongctl_linux_amd64.zip -o /tmp/kongctl_linux_amd64.zip
+        unzip /tmp/kongctl_linux_amd64.zip -d /tmp/kongctl
+        sudo mv /tmp/kongctl/kongctl /usr/local/bin/
+        kongctl version --full
+
     - name: Install extra rulesets for Spectral
       shell: bash
       run: |
@@ -169,13 +177,26 @@ runs:
         cat kong_diff_${{ env.NOW }}.txt
       working-directory: ${{ github.workspace }}
 
-    - name: Sync Kong Gateway configuration
+    - name: Generate Konnect configuration for kongctl
       shell: bash
       run: |
-        deck gateway sync kong.yaml  \
-          --konnect-addr="${{ inputs.konnect_server_url }}" \
-          --konnect-token="${{ inputs.system_account_token }}" \
-          --konnect-control-plane-name="${{ inputs.control_plane_name }}"
+        cat > konnect.yaml << 'EOF'
+        control_planes:
+          - ref: target-cp
+            name: "${{ inputs.control_plane_name }}"
+            _deck:
+              files:
+                - "kong.yaml"
+        EOF
+      working-directory: ${{ github.workspace }}
+
+    - name: Apply Kong Gateway configuration to Konnect
+      shell: bash
+      env:
+        KONGCTL_DEFAULT_KONNECT_PAT: ${{ inputs.system_account_token }}
+      run: |
+        kongctl apply -f konnect.yaml \
+          --base-url="${{ inputs.konnect_server_url }}"
       working-directory: ${{ github.workspace }}
 
     - name: Get a backup of the current Kong Gateway configuration

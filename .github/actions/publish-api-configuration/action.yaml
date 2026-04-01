@@ -192,6 +192,28 @@ runs:
                 - "--select-tag=${{ env.DECK_API_NAME }}"
                 - "--select-tag=${{ env.DECK_CONFIG_OWNER }}"
                 - "--select-tag=${{ env.DECK_ORGANIZATION }}"
+            # External reference so kongctl can resolve the gateway service
+            # created by deck (by name) and link it to the Catalog API
+            gateway_services:
+              - ref: api-gw-svc
+                _external:
+                  selector:
+                    matchFields:
+                      name: "${{ env.DECK_API_NAME }}"
+        apis:
+          - ref: catalog-api
+            name: "${{ env.DECK_API_NAME }}"
+            labels:
+              team: "${{ env.DECK_CONFIG_OWNER }}"
+              organization: "${{ env.DECK_ORGANIZATION }}"
+            # inputs.openapi_spec is relative to github.workspace, the same
+            # directory where konnect.yaml is written, so the path is correct
+            spec_content: !file "${{ inputs.openapi_spec }}"
+            implementations:
+              - ref: catalog-api-impl
+                service:
+                  id: !ref api-gw-svc
+                  control_plane_id: !ref target-cp
         EOF
       working-directory: ${{ github.workspace }}
 

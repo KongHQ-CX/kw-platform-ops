@@ -34,6 +34,15 @@ runs:
         sudo mv deck /usr/local/bin/
         deck version
 
+    - name: Install kongctl CLI
+      shell: bash
+      run: |
+        curl -fsSL https://github.com/Kong/kongctl/releases/download/v0.7.0/kongctl_linux_amd64.zip -o /tmp/kongctl_linux_amd64.zip
+        echo "834285eb718d400684e8e26ee60cd6985e31f74c954c86cc3e7bf3d800e0e8a4  /tmp/kongctl_linux_amd64.zip" | sha256sum --check
+        unzip /tmp/kongctl_linux_amd64.zip -d /tmp/kongctl
+        sudo mv /tmp/kongctl/kongctl /usr/local/bin/
+        kongctl version --full
+
     - name: Install extra rulesets for Spectral
       shell: bash
       run: |
@@ -169,13 +178,52 @@ runs:
         cat kong_diff_${{ env.NOW }}.txt
       working-directory: ${{ github.workspace }}
 
-    - name: Sync Kong Gateway configuration
+    - name: Generate Konnect configuration for kongctl
       shell: bash
       run: |
-        deck gateway sync kong.yaml  \
-          --konnect-addr="${{ inputs.konnect_server_url }}" \
-          --konnect-token="${{ inputs.system_account_token }}" \
-          --konnect-control-plane-name="${{ inputs.control_plane_name }}"
+        cat > konnect.yaml << 'EOF'
+        control_planes:
+          - ref: target-cp
+            name: "${{ inputs.control_plane_name }}"
+            _deck:
+              files:
+                - "kong.yaml"
+              flags:
+                - "--select-tag=${{ env.DECK_API_NAME }}"
+                - "--select-tag=${{ env.DECK_CONFIG_OWNER }}"
+                - "--select-tag=${{ env.DECK_ORGANIZATION }}"
+            # External reference so kongctl can resolve the gateway service
+            # created by deck (by name) and link it to the Catalog API
+            gateway_services:
+              - ref: api-gw-svc
+                _external:
+                  selector:
+                    matchFields:
+                      name: "${{ env.DECK_API_NAME }}"
+        apis:
+          - ref: catalog-api
+            name: "${{ env.DECK_API_NAME }}"
+            labels:
+              team: "${{ env.DECK_CONFIG_OWNER }}"
+              organization: "${{ env.DECK_ORGANIZATION }}"
+            # inputs.openapi_spec is relative to github.workspace, the same
+            # directory where konnect.yaml is written, so the path is correct
+            spec_content: !file "${{ inputs.openapi_spec }}"
+            implementations:
+              - ref: catalog-api-impl
+                service:
+                  id: !ref api-gw-svc
+                  control_plane_id: !ref target-cp
+        EOF
+      working-directory: ${{ github.workspace }}
+
+    - name: Apply Kong Gateway configuration to Konnect
+      shell: bash
+      env:
+        KONGCTL_DEFAULT_KONNECT_PAT: ${{ inputs.system_account_token }}
+      run: |
+        kongctl apply -f konnect.yaml \
+          --base-url="${{ inputs.konnect_server_url }}"
       working-directory: ${{ github.workspace }}
 
     - name: Get a backup of the current Kong Gateway configuration

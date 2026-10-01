@@ -5,7 +5,7 @@ networks:
 services:
   minio:
     container_name: minio
-    image: 'bitnami/minio:latest'
+    image: 'soldevelo/minio:latest'
     ports:
       - '9000:9000'
       - '9001:9001'
